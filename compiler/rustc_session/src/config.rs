@@ -1161,7 +1161,10 @@ pub fn rustc_optgroups() -> Vec<RustcOptGroup> {
         opt::multi_s(
             "",
             "remap-path-prefix",
-            "Remap source names in all output (compiler messages and output files)",
+            "Remap source names in all output (compiler messages and output files).
+            The metasyntactic variable __RUSTC_CWD can be used to represent the current
+            working directory witin the FROM pattern.
+            ",
             "FROM=TO",
         ),
     ]);
@@ -1935,9 +1938,13 @@ fn parse_remap_path_prefix(
                 error_format,
                 "--remap-path-prefix must contain '=' between FROM and TO",
             ),
-            Some((from, to)) => (PathBuf::from(from), PathBuf::from(to)),
+            Some((from, to)) => (pathbuf_understanding_pwd(from), PathBuf::from(to)),
         })
         .collect()
+}
+
+fn pathbuf_understanding_pwd(path: &str) -> PathBuf {
+    PathBuf::from(std::str::replace(path, "__RUSTC_CWD", std::env::current_dir().unwrap()))
 }
 
 pub fn build_session_options(matches: &getopts::Matches) -> Options {

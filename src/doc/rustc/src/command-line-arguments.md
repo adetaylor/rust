@@ -345,6 +345,10 @@ replacement is purely textual, with no consideration of the current system's
 pathname syntax. For example `--remap-path-prefix foo=bar` will match
 `foo/lib.rs` but not `./foo/lib.rs`.
 
+Within the `FROM` pattern, the special string `__RUSTC_CWD` is replaced with
+the current working directory. This can be useful to ensure that the `rustc`
+command line is identical on different machines.
+
 <a id="option-json"></a>
 ## `--json`: configure json messages printed by the compiler
 

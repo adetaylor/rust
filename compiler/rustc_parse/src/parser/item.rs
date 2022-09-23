@@ -2386,14 +2386,6 @@ impl<'a> Parser<'a> {
             };
             Ok((eself, eself_ident, eself_hi))
         };
-        // Recover for the grammar `*self`, `*const self`, and `*mut self`.
-        let recover_self_ptr = |this: &mut Self| {
-            let msg = "cannot pass `self` by raw pointer";
-            let span = this.token.span;
-            this.struct_span_err(span, msg).span_label(span, msg).emit();
-
-            Ok((SelfKind::Value(Mutability::Not), expect_self_ident(this), this.prev_token.span))
-        };
 
         // Parse optional `self` parameter of a method.
         // Only a limited set of initial token sequences is considered `self` parameters; anything
@@ -2428,17 +2420,22 @@ impl<'a> Parser<'a> {
                 (eself, expect_self_ident(self), self.prev_token.span)
             }
             // `*self`
-            token::BinOp(token::Star) if is_isolated_self(self, 1) => {
-                self.bump();
-                recover_self_ptr(self)?
-            }
-            // `*mut self` and `*const self`
-            token::BinOp(token::Star)
-                if self.look_ahead(1, |t| t.is_mutability()) && is_isolated_self(self, 2) =>
-            {
-                self.bump();
-                self.bump();
-                recover_self_ptr(self)?
+            token::BinOp(token::Star) => {
+                let eself = if is_isolated_mut_self(self, 1) {
+                    // `*mut self`
+                    self.bump();
+                    self.bump();
+                    SelfKind::Region(None, Mutability::Mut)
+                } else if is_isolated_const_self(self, 1) {
+                    // `*const self`
+                    self.bump();
+                    self.bump();
+                    SelfKind::Region(None, Mutability::Not)
+                } else {
+                    // `*not_self`
+                    return Ok(None);
+                };
+                (eself, expect_self_ident(self), self.prev_token.span)
             }
             // `self` and `self: TYPE`
             token::Ident(..) if is_isolated_self(self, 0) => {

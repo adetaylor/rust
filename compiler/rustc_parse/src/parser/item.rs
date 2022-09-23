@@ -2429,12 +2429,12 @@ impl<'a> Parser<'a> {
                     // `*mut self`
                     self.bump();
                     self.bump();
-                    SelfKind::Region(None, Mutability::Mut)
+                    SelfKind::Pointer(Mutability::Mut)
                 } else if is_isolated_const_self(self, 1) {
                     // `*const self`
                     self.bump();
                     self.bump();
-                    SelfKind::Region(None, Mutability::Not)
+                    SelfKind::Pointer(Mutability::Not)
                 } else {
                     // `*not_self`
                     return Ok(None);

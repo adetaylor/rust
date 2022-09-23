@@ -1674,12 +1674,24 @@ fn receiver_is_valid<'tcx>(
         ObligationCause::new(span, wfcx.body_id, traits::ObligationCauseCode::MethodReceiver);
 
     let can_eq_self = |ty| infcx.can_eq(wfcx.param_env, self_ty, ty).is_ok();
+    let can_eq_ptr_to_self = |ty: Ty<'tcx>| {
+        if let ty::RawPtr(pointee) = ty.kind() {
+            infcx.can_eq(wfcx.param_env, self_ty, pointee.ty).is_ok()
+        } else {
+            false
+        }
+    };
 
     // `self: Self` is always valid.
     if can_eq_self(receiver_ty) {
         if let Err(err) = wfcx.equate_types(&cause, wfcx.param_env, self_ty, receiver_ty) {
             infcx.report_mismatched_types(&cause, self_ty, receiver_ty, err).emit();
         }
+        return true;
+    }
+
+    // `self: *const Self` or `self: *mut Self` is also always valid.
+    if can_eq_ptr_to_self(receiver_ty) {
         return true;
     }
 

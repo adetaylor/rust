@@ -1,5 +1,7 @@
 // run-pass
 
+#![feature(arbitrary_self_types)]
+
 struct Foo(u32);
 
 impl Foo {
@@ -10,5 +12,5 @@ impl Foo {
 
 fn main() {
     let foo = Foo(3);
-    assert_eq!(3, foo.contents());
+    assert_eq!(3, (&foo as *const Foo).contents());
 }

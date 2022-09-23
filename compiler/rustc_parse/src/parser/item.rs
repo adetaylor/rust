@@ -2375,6 +2375,10 @@ impl<'a> Parser<'a> {
         // Is `mut self` `n` tokens ahead?
         let is_isolated_mut_self =
             |this: &Self, n| this.is_keyword_ahead(n, &[kw::Mut]) && is_isolated_self(this, n + 1);
+        // Is `const self` `n` tokens ahead?
+        let is_isolated_const_self = |this: &Self, n| {
+            this.is_keyword_ahead(n, &[kw::Const]) && is_isolated_self(this, n + 1)
+        };
         // Parse `self` or `self: TYPE`. We already know the current token is `self`.
         let parse_self_possibly_typed = |this: &mut Self, m| {
             let eself_ident = expect_self_ident(this);

@@ -1532,6 +1532,11 @@ impl<'a> State<'a> {
                 self.print_mutability(m, false);
                 self.word("self")
             }
+            SelfKind::Pointer(m) => {
+                self.word("*");
+                self.print_mutability(m, true);
+                self.word("self")
+            }
             SelfKind::Region(ref lt, m) => {
                 self.word("&");
                 self.print_opt_lifetime(lt);

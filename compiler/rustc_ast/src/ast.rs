@@ -2223,6 +2223,8 @@ pub enum SelfKind {
     Value(Mutability),
     /// `&'lt self`, `&'lt mut self`
     Region(Option<Lifetime>, Mutability),
+    /// `*const self`, `*mut self`
+    Pointer(Mutability),
     /// `self: TYPE`, `mut self: TYPE`
     Explicit(P<Ty>, Mutability),
 }
@@ -2265,6 +2267,15 @@ impl Param {
         let (mutbl, ty) = match eself.node {
             SelfKind::Explicit(ty, mutbl) => (mutbl, ty),
             SelfKind::Value(mutbl) => (mutbl, infer_ty),
+            SelfKind::Pointer(mutbl) => (
+                Mutability::Not,
+                P(Ty {
+                    id: DUMMY_NODE_ID,
+                    kind: TyKind::Ptr(MutTy { ty: infer_ty, mutbl }),
+                    span,
+                    tokens: None,
+                }),
+            ),
             SelfKind::Region(lt, mutbl) => (
                 Mutability::Not,
                 P(Ty {

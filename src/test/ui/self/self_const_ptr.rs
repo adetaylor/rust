@@ -1,7 +1,5 @@
 // run-pass
 
-#![feature(arbitrary_self_types)]
-
 struct Foo(u32);
 
 impl Foo {

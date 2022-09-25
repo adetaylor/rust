@@ -142,6 +142,7 @@ mod arith;
 mod bit;
 mod control_flow;
 mod deref;
+mod derefptr;
 mod drop;
 mod function;
 mod generator;
@@ -162,6 +163,9 @@ pub use self::bit::{BitAndAssign, BitOrAssign, BitXorAssign, ShlAssign, ShrAssig
 
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use self::deref::{Deref, DerefMut};
+
+#[unstable(feature = "arbitrary_self_types", issue = "44874")]
+pub use self::derefptr::{DerefPtr, DerefPtrMut};
 
 #[unstable(feature = "receiver_trait", issue = "none")]
 pub use self::deref::Receiver;

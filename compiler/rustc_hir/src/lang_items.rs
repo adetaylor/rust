@@ -227,6 +227,9 @@ language_item_table! {
     Deref,                   sym::deref,               deref_trait,                Target::Trait,          GenericRequirement::Exact(0);
     DerefMut,                sym::deref_mut,           deref_mut_trait,            Target::Trait,          GenericRequirement::Exact(0);
     DerefTarget,             sym::deref_target,        deref_target,               Target::AssocTy,        GenericRequirement::None;
+    DerefPtr,                sym::deref_ptr,           deref_ptr_trait,            Target::Trait,          GenericRequirement::Exact(0);
+    DerefPtrMut,             sym::deref_ptr_mut,       deref_ptr_mut_trait,        Target::Trait,          GenericRequirement::Exact(0);
+    DerefPtrTarget,          sym::deref_ptr_target,    deref_ptr_target,           Target::AssocTy,        GenericRequirement::None;
     Receiver,                sym::receiver,            receiver_trait,             Target::Trait,          GenericRequirement::None;
 
     Fn(Fn),                  kw::Fn,                   fn_trait,                   Target::Trait,          GenericRequirement::Exact(1);

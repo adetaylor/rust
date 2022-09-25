@@ -2,11 +2,11 @@
 ///
 /// This should be used sparingly, for cases where a reference may not be
 /// created to the target.
-#[lang = "deref_ptr"]
+#[cfg_attr(not(bootstrap), lang = "deref_ptr")]
 #[unstable(feature = "arbitrary_self_types", issue = "44874")]
 pub trait DerefPtr {
     /// The resulting type after dereferencing.
-    #[lang = "deref_ptr_target"]
+    #[cfg_attr(not(bootstrap), lang = "deref_ptr_target")]
     type Target: ?Sized;
 
     /// Dereferences the value.
@@ -15,7 +15,7 @@ pub trait DerefPtr {
 }
 
 /// Like [`DerefMut`] but dereferences to a mutable raw pointer.
-#[lang = "deref_ptr_mut"]
+#[cfg_attr(not(bootstrap), lang = "deref_ptr_mut")]
 #[unstable(feature = "arbitrary_self_types", issue = "44874")]
 pub trait DerefPtrMut: DerefPtr {
     /// Dereferences the value.

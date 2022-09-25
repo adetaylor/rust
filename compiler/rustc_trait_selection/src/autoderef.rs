@@ -1,6 +1,7 @@
 use crate::errors::AutoDerefReachedRecursionLimit;
 use crate::traits::query::evaluate_obligation::InferCtxtExt;
 use crate::traits::{self, TraitEngine};
+use hir::def_id::DefId;
 use rustc_hir as hir;
 use rustc_infer::infer::InferCtxt;
 use rustc_middle::ty::{self, TraitRef, Ty, TyCtxt};
@@ -69,8 +70,25 @@ impl<'a, 'tcx> Iterator for Autoderef<'a, 'tcx> {
         let (kind, new_ty) =
             if let Some(mt) = self.state.cur_ty.builtin_deref(self.include_raw_pointers) {
                 (AutoderefKind::Builtin, mt.ty)
-            } else if let Some(ty) = self.overloaded_deref_ty(self.state.cur_ty) {
+            } else if let Some(ty) = self.overloaded_deref_ty(
+                self.state.cur_ty,
+                tcx.lang_items().deref_trait(),
+                tcx.lang_items().deref_target(),
+            ) {
                 (AutoderefKind::Overloaded, ty)
+            } else if self.include_raw_pointers {
+                // If we're allowing raw pointers, we will also allow
+                // use of the `DerefPtr` trait for an existing item
+                // to return a raw pointer.
+                if let Some(ty) = self.overloaded_deref_ty(
+                    self.state.cur_ty,
+                    tcx.lang_items().deref_ptr_trait(),
+                    tcx.lang_items().deref_ptr_target(),
+                ) {
+                    (AutoderefKind::Overloaded, ty)
+                } else {
+                    return None;
+                }
             } else {
                 return None;
             };
@@ -119,16 +137,18 @@ impl<'a, 'tcx> Autoderef<'a, 'tcx> {
         }
     }
 
-    fn overloaded_deref_ty(&mut self, ty: Ty<'tcx>) -> Option<Ty<'tcx>> {
+    fn overloaded_deref_ty(
+        &mut self,
+        ty: Ty<'tcx>,
+        trait_def: Option<DefId>,
+        target_def: Option<DefId>,
+    ) -> Option<Ty<'tcx>> {
         debug!("overloaded_deref_ty({:?})", ty);
 
         let tcx = self.infcx.tcx;
 
         // <ty as Deref>
-        let trait_ref = TraitRef {
-            def_id: tcx.lang_items().deref_trait()?,
-            substs: tcx.mk_substs_trait(ty, &[]),
-        };
+        let trait_ref = TraitRef { def_id: trait_def?, substs: tcx.mk_substs_trait(ty, &[]) };
 
         let cause = traits::ObligationCause::misc(self.span, self.body_id);
 
@@ -146,10 +166,7 @@ impl<'a, 'tcx> Autoderef<'a, 'tcx> {
         let normalized_ty = fulfillcx.normalize_projection_type(
             &self.infcx,
             self.param_env,
-            ty::ProjectionTy {
-                item_def_id: tcx.lang_items().deref_target()?,
-                substs: trait_ref.substs,
-            },
+            ty::ProjectionTy { item_def_id: target_def?, substs: trait_ref.substs },
             cause,
         );
         let errors = fulfillcx.select_where_possible(&self.infcx);

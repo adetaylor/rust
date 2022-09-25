@@ -206,6 +206,12 @@ pub struct Pick<'tcx> {
     /// ```
     pub autoderefs: usize,
 
+    /// Whether the source expression should be deref-ptr'ed once after
+    /// autodereffing, to get to a raw pointer.
+    // FIXME: fill this in
+    // FIXME: use it!
+    // pub autoderefptr: bool,
+
     /// Indicates that we want to add an autoref (and maybe also unsize it), or if the receiver is
     /// `*mut T`, convert it to `*const T`.
     pub autoref_or_ptr_adjustment: Option<AutorefOrPtrAdjustment>,
@@ -476,6 +482,12 @@ fn method_autoderef_steps<'tcx>(
     tcx.infer_ctxt().enter_with_canonical(DUMMY_SP, &goal, |ref infcx, goal, inference_vars| {
         let ParamEnvAnd { param_env, value: self_ty } = goal;
 
+        // FIXME: I would have hoped that the following would automatically
+        // now follow DerefPtr and find candidates. It's unclear to me whether
+        // this search is failing to find such candidates, or if they're
+        // instead subsequently being eliminated - possibly by the fact that
+        // the Pick structure has no way to indicate that such operations
+        // might be necessary.
         let mut autoderef =
             Autoderef::new(infcx, param_env, hir::CRATE_HIR_ID, DUMMY_SP, self_ty, DUMMY_SP)
                 .include_raw_pointers()

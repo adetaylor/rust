@@ -1383,7 +1383,9 @@ impl<T: ?Sized> Deref for Arc<T> {
 }
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<T: ?Sized> Receiver for Arc<T> {}
+impl<T: ?Sized> Receiver for Arc<T> {
+    type Target = T;
+}
 
 impl<T: Clone> Arc<T> {
     /// Makes a mutable reference into the given `Arc`.

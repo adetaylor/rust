@@ -1522,7 +1522,9 @@ impl<T: ?Sized> Deref for Rc<T> {
 }
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<T: ?Sized> Receiver for Rc<T> {}
+impl<T: ?Sized> Receiver for Rc<T> {
+    type Target = T;
+}
 
 #[stable(feature = "rust1", since = "1.0.0")]
 unsafe impl<#[may_dangle] T: ?Sized> Drop for Rc<T> {

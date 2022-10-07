@@ -883,7 +883,9 @@ impl<P: DerefMut<Target: Unpin>> DerefMut for Pin<P> {
 }
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<P: Receiver> Receiver for Pin<P> {}
+impl<P: Receiver> Receiver for Pin<P> {
+    type Target = P;
+}
 
 #[stable(feature = "pin", since = "1.33.0")]
 impl<P: fmt::Debug> fmt::Debug for Pin<P> {

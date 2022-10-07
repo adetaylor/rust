@@ -16,11 +16,14 @@ use rustc_infer::infer::canonical::OriginalQueryValues;
 use rustc_infer::infer::canonical::{Canonical, QueryResponse};
 use rustc_infer::infer::type_variable::{TypeVariableOrigin, TypeVariableOriginKind};
 use rustc_infer::infer::{self, InferOk, TyCtxtInferExt};
+use rustc_infer::traits::PredicateObligation;
+use rustc_infer::traits::TraitEngine;
 use rustc_middle::infer::unify_key::{ConstVariableOrigin, ConstVariableOriginKind};
 use rustc_middle::middle::stability;
 use rustc_middle::ty::fast_reject::{simplify_type, TreatParams};
 use rustc_middle::ty::subst::{InternalSubsts, Subst, SubstsRef};
 use rustc_middle::ty::GenericParamDefKind;
+use rustc_middle::ty::TraitRef;
 use rustc_middle::ty::{self, ParamEnvAnd, ToPredicate, Ty, TyCtxt, TypeFoldable, TypeVisitable};
 use rustc_session::lint;
 use rustc_span::def_id::LocalDefId;
@@ -648,6 +651,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                 if self.tcx.has_attr(def_id, sym::rustc_has_incoherent_inherent_impls) {
                     self.assemble_inherent_candidates_for_incoherent_ty(raw_self_ty);
                 }
+                self.assemble_inherent_impl_candidates_for_receiver_trait_target(raw_self_ty);
             }
             ty::Foreign(did) => {
                 self.assemble_inherent_impl_candidates_for_type(did);
@@ -679,18 +683,84 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             bug!("unexpected incoherent type: {:?}", self_ty)
         };
         for &impl_def_id in self.tcx.incoherent_impls(simp) {
-            self.assemble_inherent_impl_probe(impl_def_id);
+            self.assemble_inherent_impl_probe(impl_def_id, Vec::new());
         }
+    }
+
+    fn assemble_inherent_impl_candidates_for_receiver_trait_target(&mut self, self_ty: Ty<'tcx>) {
+        let receiver_ty_and_obligations = self.overloaded_receiver_ty(self_ty);
+        if let Some((receiver_ty, obligations)) = receiver_ty_and_obligations {
+            if let Some(adt_def) = receiver_ty.ty_adt_def() {
+                let def_id = adt_def.did();
+                let impl_def_ids = self.tcx.at(self.span).inherent_impls(def_id);
+                for &impl_def_id in impl_def_ids.iter() {
+                    self.assemble_inherent_impl_probe(impl_def_id, obligations.clone());
+                }
+            }
+        }
+    }
+
+    fn overloaded_receiver_ty(
+        &mut self,
+        ty: Ty<'tcx>,
+    ) -> Option<(Ty<'tcx>, Vec<PredicateObligation<'tcx>>)> {
+        debug!("overloaded_receiver_ty{:?})", ty);
+
+        let tcx = self.infcx.tcx;
+
+        // <ty as Receiver>
+        let trait_ref = TraitRef {
+            def_id: tcx.lang_items().receiver_trait()?,
+            substs: tcx.mk_substs_trait(ty, &[]),
+        };
+        if trait_ref.has_escaping_bound_vars() {
+            return None;
+        }
+
+        let cause = traits::ObligationCause::misc(self.span, self.body_id);
+
+        let obligation = traits::Obligation::new(
+            cause.clone(),
+            self.param_env,
+            ty::Binder::dummy(trait_ref).without_const().to_predicate(tcx),
+        );
+        if !self.infcx.predicate_may_hold(&obligation) {
+            debug!("overloaded_receiver_ty: cannot match obligation");
+            return None;
+        }
+
+        let mut fulfillcx = traits::FulfillmentContext::new_in_snapshot();
+        let normalized_ty = fulfillcx.normalize_projection_type(
+            &self.infcx,
+            self.param_env,
+            ty::ProjectionTy {
+                item_def_id: tcx.lang_items().receiver_target()?,
+                substs: trait_ref.substs,
+            },
+            cause,
+        );
+        let errors = fulfillcx.select_where_possible(&self.infcx);
+        if !errors.is_empty() {
+            return None;
+        }
+        let obligations = fulfillcx.pending_obligations();
+        debug!("overloaded_receiver_ty({:?}) = ({:?}, {:?})", ty, normalized_ty, obligations);
+
+        Some((self.infcx.resolve_vars_if_possible(normalized_ty), obligations))
     }
 
     fn assemble_inherent_impl_candidates_for_type(&mut self, def_id: DefId) {
         let impl_def_ids = self.tcx.at(self.span).inherent_impls(def_id);
         for &impl_def_id in impl_def_ids.iter() {
-            self.assemble_inherent_impl_probe(impl_def_id);
+            self.assemble_inherent_impl_probe(impl_def_id, Vec::new());
         }
     }
 
-    fn assemble_inherent_impl_probe(&mut self, impl_def_id: DefId) {
+    fn assemble_inherent_impl_probe(
+        &mut self,
+        impl_def_id: DefId,
+        mut preexisting_obligations: Vec<PredicateObligation<'tcx>>,
+    ) {
         if !self.impl_dups.insert(impl_def_id) {
             return; // already visited
         }
@@ -724,12 +794,13 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             // see issue #89650
             let cause = traits::ObligationCause::misc(self.span, self.body_id);
             let selcx = &mut traits::SelectionContext::new(self.fcx);
-            let traits::Normalized { value: xform_self_ty, obligations } =
+            let traits::Normalized { value: xform_self_ty, mut obligations } =
                 traits::normalize(selcx, self.param_env, cause, xform_self_ty);
             debug!(
                 "assemble_inherent_impl_probe after normalization: xform_self_ty = {:?}/{:?}",
                 xform_self_ty, xform_ret_ty
             );
+            obligations.append(&mut preexisting_obligations);
 
             self.push_candidate(
                 Candidate {

@@ -1865,7 +1865,9 @@ impl<T: ?Sized, A: Allocator> const DerefMut for Box<T, A> {
 }
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<T: ?Sized, A: Allocator> Receiver for Box<T, A> {}
+impl<T: ?Sized, A: Allocator> Receiver for Box<T, A> {
+    type Target = T;
+}
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<I: Iterator + ?Sized, A: Allocator> Iterator for Box<I, A> {

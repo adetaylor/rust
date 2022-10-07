@@ -1683,6 +1683,13 @@ fn receiver_is_valid<'tcx>(
         return true;
     }
 
+    let receiver_trait_def_id = tcx.require_lang_item(LangItem::Receiver, None);
+
+    // `self: (something that impls receiver for Self)` is always valid
+    if receiver_is_implemented(wfcx, receiver_trait_def_id, cause.clone(), receiver_ty) {
+        return true;
+    }
+
     let mut autoderef =
         Autoderef::new(infcx, wfcx.param_env, wfcx.body_id, span, receiver_ty, span);
 
@@ -1694,9 +1701,8 @@ fn receiver_is_valid<'tcx>(
     // The first type is `receiver_ty`, which we know its not equal to `self_ty`; skip it.
     autoderef.next();
 
-    let receiver_trait_def_id = tcx.require_lang_item(LangItem::Receiver, None);
-
-    // Keep dereferencing `receiver_ty` until we get to `self_ty`.
+    // Keep dereferencing `receiver_ty` until we get to `self_ty` or something that
+    // implements `Receiver<Target = self_ty>`
     loop {
         if let Some((potential_self_ty, _)) = autoderef.next() {
             debug!(
@@ -1715,17 +1721,15 @@ fn receiver_is_valid<'tcx>(
 
                 break;
             } else {
-                // Without `feature(arbitrary_self_types)`, we require that each step in the
-                // deref chain implement `receiver`
-                if !arbitrary_self_types_enabled
-                    && !receiver_is_implemented(
-                        wfcx,
-                        receiver_trait_def_id,
-                        cause.clone(),
-                        potential_self_ty,
-                    )
-                {
-                    return false;
+                // We haven't got self_ty itself, but we may have got something
+                // which can act as a receiver on its behalf.
+                if receiver_is_implemented(
+                    wfcx,
+                    receiver_trait_def_id,
+                    cause.clone(),
+                    potential_self_ty,
+                ) {
+                    break;
                 }
             }
         } else {

@@ -189,11 +189,17 @@ impl<T: ?Sized> DerefMut for &mut T {
 #[unstable(feature = "receiver_trait", issue = "none")]
 #[doc(hidden)]
 pub trait Receiver {
+    #[cfg_attr(not(bootstrap), lang = "receiver_target")]
+    type Target: ?Sized;
     // Empty.
 }
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<T: ?Sized> Receiver for &T {}
+impl<T: ?Sized> Receiver for &T {
+    type Target = T;
+}
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<T: ?Sized> Receiver for &mut T {}
+impl<T: ?Sized> Receiver for &mut T {
+    type Target = T;
+}

@@ -1,34 +1,38 @@
-// run-pass
-#![feature(arbitrary_self_types)]
-
 use std::ptr;
 
 trait Foo {
     fn foo(self: *const Self) -> &'static str;
+    //~^ ERROR: invalid `self` parameter type
 
     unsafe fn bar(self: *const Self) -> i64;
+    //~^ ERROR: invalid `self` parameter type
 
     unsafe fn complicated(self: *const *const Self) -> i64 where Self: Sized {
+        //~^ ERROR: invalid `self` parameter type
         (*self).bar()
     }
 }
 
 impl Foo for i32 {
     fn foo(self: *const Self) -> &'static str {
+    //~^ ERROR: invalid `self` parameter type
         "I'm an i32!"
     }
 
     unsafe fn bar(self: *const Self) -> i64 {
+    //~^ ERROR: invalid `self` parameter type
         *self as i64
     }
 }
 
 impl Foo for u32 {
     fn foo(self: *const Self) -> &'static str {
+    //~^ ERROR: invalid `self` parameter type
         "I'm a u32!"
     }
 
     unsafe fn bar(self: *const Self) -> i64 {
+    //~^ ERROR: invalid `self` parameter type
         *self as i64
     }
 }

@@ -5017,7 +5017,7 @@ Feedback on the design and usage is always appreciated!
 The `Generator` trait in `std::ops` currently looks like:
 
 ```rust
-# #![feature(arbitrary_self_types, generator_trait)]
+# #![feature(generator_trait)]
 # use std::ops::GeneratorState;
 # use std::pin::Pin;
 
@@ -5112,7 +5112,7 @@ fn main() {
 This generator literal will compile down to something similar to:
 
 ```rust
-#![feature(arbitrary_self_types, generators, generator_trait)]
+#![feature(generators, generator_trait)]
 
 use std::ops::{Generator, GeneratorState};
 use std::pin::Pin;

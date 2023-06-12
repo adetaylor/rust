@@ -6,7 +6,7 @@
 //     10
 
 #![allow(internal_features, unused_attributes)]
-#![feature(auto_traits, lang_items, no_core, start, intrinsics, arbitrary_self_types, rustc_attrs)]
+#![feature(auto_traits, lang_items, no_core, start, intrinsics, rustc_attrs)]
 
 #![no_std]
 #![no_core]

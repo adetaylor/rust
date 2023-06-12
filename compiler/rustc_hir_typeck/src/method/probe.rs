@@ -372,6 +372,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         autoderefs: 0,
                         from_unsafe_deref: false,
                         unsize: false,
+                        reachable_via_deref: true,
                     }]),
                     opt_bad_ty: None,
                     reached_recursion_limit: false,
@@ -496,6 +497,7 @@ pub fn provide(providers: &mut Providers) {
     providers.method_autoderef_steps = method_autoderef_steps;
 }
 
+// FIXME: consider renaming
 fn method_autoderef_steps<'tcx>(
     tcx: TyCtxt<'tcx>,
     goal: CanonicalTyGoal<'tcx>,
@@ -505,29 +507,76 @@ fn method_autoderef_steps<'tcx>(
     let (ref infcx, goal, inference_vars) = tcx.infer_ctxt().build_with_canonical(DUMMY_SP, &goal);
     let ParamEnvAnd { param_env, value: self_ty } = goal;
 
-    let mut autoderef =
-        Autoderef::new(infcx, param_env, hir::def_id::CRATE_DEF_ID, DUMMY_SP, self_ty)
+    // If arbitrary self types is not enabled, we follow the chain of
+    // `Deref<Target=T>`. If arbitrary self types is enabled, we instead
+    // follow the chain of `Receiver<Target=T>`, but we also record whether
+    // such types are reachable by following the (potentially shorter)
+    // chain of `Deref<Target=T>`. We will use the first list when finding
+    // potentially relevant function implementations (e.g. relevant impl blocks)
+    // but the second list when determining types that the receiver may be
+    // converted to, in order to find out which of those methods might actually
+    // be callable.
+    let mut autoderef_via_receiver =
+        Autoderef::new(infcx, param_env, hir::def_id::CRATE_DEF_ID, DUMMY_SP, self_ty, true)
             .include_raw_pointers()
             .silence_errors();
-    let mut reached_raw_pointer = false;
-    let mut steps: Vec<_> = autoderef
-        .by_ref()
-        .map(|(ty, d)| {
-            let step = CandidateStep {
-                self_ty: infcx.make_query_response_ignoring_pending_obligations(inference_vars, ty),
-                autoderefs: d,
-                from_unsafe_deref: reached_raw_pointer,
-                unsize: false,
-            };
-            if let ty::RawPtr(_, _) = ty.kind() {
-                // all the subsequent steps will be from_unsafe_deref
-                reached_raw_pointer = true;
-            }
-            step
-        })
-        .collect();
 
-    let final_ty = autoderef.final_ty(true);
+    let mut autoderef_via_deref =
+        Autoderef::new(infcx, param_env, hir::def_id::CRATE_DEF_ID, DUMMY_SP, self_ty, false)
+            .include_raw_pointers()
+            .silence_errors();
+
+    let mut reached_raw_pointer = false;
+    let arbitrary_self_types_enabled =
+        tcx.features().arbitrary_self_types || tcx.features().arbitrary_self_types_pointers;
+    let mut steps: Vec<_> = if arbitrary_self_types_enabled {
+        let reachable_via_deref =
+            autoderef_via_deref.by_ref().map(|_| true).chain(std::iter::repeat(false));
+        autoderef_via_receiver
+            .by_ref()
+            .zip(reachable_via_deref)
+            .map(|((ty, d), reachable_via_deref)| {
+                let step = CandidateStep {
+                    self_ty: infcx
+                        .make_query_response_ignoring_pending_obligations(inference_vars, ty),
+                    autoderefs: d,
+                    from_unsafe_deref: reached_raw_pointer,
+                    unsize: false,
+                    reachable_via_deref,
+                };
+                if let ty::RawPtr(_, _) = ty.kind() {
+                    // all the subsequent steps will be from_unsafe_deref
+                    reached_raw_pointer = true;
+                }
+                step
+            })
+            .collect()
+    } else {
+        autoderef_via_deref
+            .by_ref()
+            .map(|(ty, d)| {
+                let step = CandidateStep {
+                    self_ty: infcx
+                        .make_query_response_ignoring_pending_obligations(inference_vars, ty),
+                    autoderefs: d,
+                    from_unsafe_deref: reached_raw_pointer,
+                    unsize: false,
+                    reachable_via_deref: true,
+                };
+                if let ty::RawPtr(_, _) = ty.kind() {
+                    // all the subsequent steps will be from_unsafe_deref
+                    reached_raw_pointer = true;
+                }
+                step
+            })
+            .collect()
+    };
+    let final_ty = if arbitrary_self_types_enabled {
+        autoderef_via_receiver.by_ref()
+    } else {
+        autoderef_via_deref.by_ref()
+    }
+    .final_ty(true);
     let opt_bad_ty = match final_ty.kind() {
         ty::Infer(ty::TyVar(_)) | ty::Error(_) => Some(MethodAutoderefBadTy {
             reached_raw_pointer,
@@ -535,6 +584,8 @@ fn method_autoderef_steps<'tcx>(
         }),
         ty::Array(elem_ty, _) => {
             let dereferences = steps.len() - 1;
+            let reachable_via_deref =
+                steps.last().map(|cs| cs.reachable_via_deref).unwrap_or_default();
 
             steps.push(CandidateStep {
                 self_ty: infcx.make_query_response_ignoring_pending_obligations(
@@ -546,6 +597,7 @@ fn method_autoderef_steps<'tcx>(
                 // a *mut/const [T; N]
                 from_unsafe_deref: reached_raw_pointer,
                 unsize: true,
+                reachable_via_deref,
             });
 
             None
@@ -558,7 +610,12 @@ fn method_autoderef_steps<'tcx>(
     MethodAutoderefStepsResult {
         steps: tcx.arena.alloc_from_iter(steps),
         opt_bad_ty: opt_bad_ty.map(|ty| &*tcx.arena.alloc(ty)),
-        reached_recursion_limit: autoderef.reached_recursion_limit(),
+        reached_recursion_limit: if arbitrary_self_types_enabled {
+            autoderef_via_receiver
+        } else {
+            autoderef_via_deref
+        }
+        .reached_recursion_limit(),
     }
 }
 
@@ -1039,6 +1096,10 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
     ) -> Option<PickResult<'tcx>> {
         self.steps
             .iter()
+            // At this point we're considering the types to which the receiver can be converted,
+            // so we want to follow the `Deref` chain not the `Receiver` chain. Filter out
+            // steps which can only be reached by following the (longer) `Receiver` chain.
+            .filter(|step| step.reachable_via_deref)
             .filter(|step| {
                 debug!("pick_all_method: step={:?}", step);
                 // skip types that are from a type error or that would require dereferencing

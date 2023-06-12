@@ -1,4 +1,4 @@
-#![feature(arbitrary_self_types)]
+// Blank for line numbering
 
 use std::ops::Deref;
 

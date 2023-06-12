@@ -8,7 +8,7 @@
 //     Int argument: 2
 //     Both args: 11
 
-#![feature(arbitrary_self_types, auto_traits, lang_items, no_core, start, intrinsics,
+#![feature(auto_traits, lang_items, no_core, start, intrinsics,
     unboxed_closures)]
 
 #![no_std]

@@ -1,7 +1,7 @@
 // check-pass
 // edition:2018
 
-#![feature(arbitrary_self_types)]
+
 
 use std::task::{self, Poll};
 use std::future::Future;

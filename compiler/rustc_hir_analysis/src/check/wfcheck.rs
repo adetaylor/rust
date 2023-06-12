@@ -19,8 +19,7 @@ use rustc_middle::ty::{
     TypeVisitable, TypeVisitableExt, TypeVisitor,
 };
 use rustc_middle::ty::{GenericArgKind, GenericArgs};
-use rustc_session::parse::feature_err;
-use rustc_span::symbol::{sym, Ident, Symbol};
+use rustc_span::symbol::{Ident, Symbol};
 use rustc_span::{Span, DUMMY_SP};
 use rustc_target::spec::abi::Abi;
 use rustc_trait_selection::traits::error_reporting::TypeErrCtxtExt;
@@ -1577,31 +1576,8 @@ fn check_method_receiver<'tcx>(
     let receiver_ty = sig.inputs()[0];
     let receiver_ty = wfcx.normalize(span, None, receiver_ty);
 
-    if tcx.features().arbitrary_self_types {
-        if !receiver_is_valid(wfcx, span, receiver_ty, self_ty, true) {
-            // Report error; `arbitrary_self_types` was enabled.
-            return Err(e0307(tcx, span, receiver_ty));
-        }
-    } else {
-        if !receiver_is_valid(wfcx, span, receiver_ty, self_ty, false) {
-            return Err(if receiver_is_valid(wfcx, span, receiver_ty, self_ty, true) {
-                // Report error; would have worked with `arbitrary_self_types`.
-                feature_err(
-                    &tcx.sess.parse_sess,
-                    sym::arbitrary_self_types,
-                    span,
-                    format!(
-                        "`{receiver_ty}` cannot be used as the type of `self` without \
-                         the `arbitrary_self_types` feature",
-                    ),
-                )
-                .help(HELP_FOR_SELF_TYPE)
-                .emit()
-            } else {
-                // Report error; would not have worked with `arbitrary_self_types`.
-                e0307(tcx, span, receiver_ty)
-            });
-        }
+    if !receiver_is_valid(wfcx, span, receiver_ty, self_ty) {
+        return Err(e0307(tcx, span, receiver_ty));
     }
     Ok(())
 }
@@ -1618,11 +1594,8 @@ fn e0307(tcx: TyCtxt<'_>, span: Span, receiver_ty: Ty<'_>) -> ErrorGuaranteed {
     .emit()
 }
 
-/// Returns whether `receiver_ty` would be considered a valid receiver type for `self_ty`. If
-/// `arbitrary_self_types` is enabled, `receiver_ty` must transitively deref to `self_ty`, possibly
-/// through a `*const/mut T` raw pointer. If the feature is not enabled, the requirements are more
-/// strict: `receiver_ty` must implement `Receiver` and directly implement
-/// `Deref<Target = self_ty>`.
+/// Returns whether `receiver_ty` would be considered a valid receiver type for `self_ty`. 
+/// `receiver_ty` must implement `Receiver<Target = self_ty>`
 ///
 /// N.B., there are cases this function returns `true` but causes an error to be emitted,
 /// particularly when `receiver_ty` derefs to a type that is the same as `self_ty` but has the
@@ -1632,7 +1605,6 @@ fn receiver_is_valid<'tcx>(
     span: Span,
     receiver_ty: Ty<'tcx>,
     self_ty: Ty<'tcx>,
-    arbitrary_self_types_enabled: bool,
 ) -> bool {
     let infcx = wfcx.infcx;
     let tcx = wfcx.tcx();
@@ -1651,10 +1623,7 @@ fn receiver_is_valid<'tcx>(
 
     let mut autoderef = Autoderef::new(infcx, wfcx.param_env, wfcx.body_def_id, span, receiver_ty);
 
-    // The `arbitrary_self_types` feature allows raw pointer receivers like `self: *const Self`.
-    if arbitrary_self_types_enabled {
-        autoderef = autoderef.include_raw_pointers();
-    }
+    autoderef = autoderef.include_raw_pointers();
 
     // The first type is `receiver_ty`, which we know its not equal to `self_ty`; skip it.
     autoderef.next();
@@ -1681,10 +1650,9 @@ fn receiver_is_valid<'tcx>(
 
                 break;
             } else {
-                // Without `feature(arbitrary_self_types)`, we require that each step in the
+                // We require that each step in the
                 // deref chain implement `receiver`
-                if !arbitrary_self_types_enabled
-                    && !receiver_is_implemented(
+                if !receiver_is_implemented(
                         wfcx,
                         receiver_trait_def_id,
                         cause.clone(),
@@ -1702,9 +1670,8 @@ fn receiver_is_valid<'tcx>(
         }
     }
 
-    // Without `feature(arbitrary_self_types)`, we require that `receiver_ty` implements `Receiver`.
-    if !arbitrary_self_types_enabled
-        && !receiver_is_implemented(wfcx, receiver_trait_def_id, cause.clone(), receiver_ty)
+    // Wee require that `receiver_ty` implements `Receiver`.
+    if !receiver_is_implemented(wfcx, receiver_trait_def_id, cause.clone(), receiver_ty)
     {
         return false;
     }

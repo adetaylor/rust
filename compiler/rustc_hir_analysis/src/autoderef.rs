@@ -15,7 +15,6 @@ pub enum AutoderefKind {
     Builtin,
     Overloaded,
 }
-
 struct AutoderefSnapshot<'tcx> {
     at_start: bool,
     reached_recursion_limit: bool,
@@ -30,6 +29,7 @@ pub struct Autoderef<'a, 'tcx> {
     span: Span,
     body_id: LocalDefId,
     param_env: ty::ParamEnv<'tcx>,
+    use_receiver_trait: bool,
 
     // Current state:
     state: AutoderefSnapshot<'tcx>,
@@ -112,7 +112,8 @@ impl<'a, 'tcx> Autoderef<'a, 'tcx> {
         body_def_id: LocalDefId,
         span: Span,
         base_ty: Ty<'tcx>,
-    ) -> Autoderef<'a, 'tcx> {
+        use_receiver_trait: bool,
+    ) -> Self {
         Autoderef {
             infcx,
             span,
@@ -127,6 +128,7 @@ impl<'a, 'tcx> Autoderef<'a, 'tcx> {
             },
             include_raw_pointers: false,
             silence_errors: false,
+            use_receiver_trait,
         }
     }
 
@@ -134,8 +136,13 @@ impl<'a, 'tcx> Autoderef<'a, 'tcx> {
         debug!("overloaded_deref_ty({:?})", ty);
         let tcx = self.infcx.tcx;
 
-        // <ty as Deref>
-        let trait_ref = ty::TraitRef::new(tcx, tcx.lang_items().deref_trait()?, [ty]);
+        // <ty as Deref>, or whatever the equivalent trait is that we've been asked to walk.
+        let (trait_def_id, trait_target_def_id) = if self.use_receiver_trait {
+            (tcx.lang_items().receiver_trait()?, tcx.lang_items().receiver_target()?)
+        } else {
+            (tcx.lang_items().deref_trait()?, tcx.lang_items().deref_target()?)
+        };
+        let trait_ref = ty::TraitRef::new(tcx, trait_def_id, [ty]);
         let cause = traits::ObligationCause::misc(self.span, self.body_id);
         let obligation = traits::Obligation::new(
             tcx,
@@ -148,11 +155,8 @@ impl<'a, 'tcx> Autoderef<'a, 'tcx> {
             return None;
         }
 
-        let (normalized_ty, obligations) = self.structurally_normalize(Ty::new_projection(
-            tcx,
-            tcx.lang_items().deref_target()?,
-            [ty],
-        ))?;
+        let (normalized_ty, obligations) =
+            self.structurally_normalize(Ty::new_projection(tcx, trait_target_def_id, [ty]))?;
         debug!("overloaded_deref_ty({:?}) = ({:?}, {:?})", ty, normalized_ty, obligations);
         self.state.obligations.extend(obligations);
 

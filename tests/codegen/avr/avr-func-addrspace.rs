@@ -9,7 +9,7 @@
 // It also validates that functions can be called through function pointers
 // through traits.
 
-#![feature(no_core, lang_items, intrinsics, unboxed_closures, arbitrary_self_types)]
+#![feature(no_core, lang_items, intrinsics, unboxed_closures)]
 #![crate_type = "lib"]
 #![no_core]
 
@@ -18,7 +18,16 @@ pub trait Sized { }
 #[lang = "copy"]
 pub trait Copy { }
 #[lang = "receiver"]
-pub trait Receiver { }
+pub trait Receiver {
+    #[lang = "receiver_target"]
+    type Target: ?Sized;
+}
+impl<T: ?Sized> Receiver for &T {
+    type Target = T;
+}
+impl<T: ?Sized> Receiver for &mut T {
+    type Target = T;
+}
 #[lang = "tuple_trait"]
 pub trait Tuple { }
 

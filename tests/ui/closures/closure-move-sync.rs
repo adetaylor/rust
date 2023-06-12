@@ -5,7 +5,7 @@ fn bar() {
     let (send, recv) = channel();
     let t = thread::spawn(|| {
         recv.recv().unwrap();
-        //~^^ ERROR `Receiver<()>` cannot be shared between threads safely
+        //~^^ ERROR `std::sync::mpsc::Receiver<()>` cannot be shared between threads safely
     });
 
     send.send(());

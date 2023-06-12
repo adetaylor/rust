@@ -1812,7 +1812,11 @@ fn receiver_is_valid<'tcx>(
         return true;
     }
 
-    let mut autoderef = Autoderef::new(infcx, wfcx.param_env, wfcx.body_def_id, span, receiver_ty);
+    let hard_coded_receiver_trait_def_id =
+        tcx.require_lang_item(LangItem::HardCodedReceiver, Some(span));
+
+    let mut autoderef =
+        Autoderef::new(infcx, wfcx.param_env, wfcx.body_def_id, span, receiver_ty, true);
 
     // The `arbitrary_self_types_pointers` feature allows raw pointer receivers like `self: *const Self`.
     // If this were ever to be stabilized, a better way would just be to implement Receiver
@@ -1821,8 +1825,6 @@ fn receiver_is_valid<'tcx>(
     if matches!(arbitrary_self_types_enabled, ArbitrarySelfTypesLevel::ArbitrarySelfTypesPointers) {
         autoderef = autoderef.include_raw_pointers();
     }
-
-    let receiver_trait_def_id = tcx.require_lang_item(LangItem::HardCodedReceiver, Some(span));
 
     // Keep dereferencing `receiver_ty` until we get to `self_ty`.
     while let Some((potential_self_ty, _)) = autoderef.next() {
@@ -1847,7 +1849,7 @@ fn receiver_is_valid<'tcx>(
         if matches!(arbitrary_self_types_enabled, ArbitrarySelfTypesLevel::None) {
             if !receiver_is_implemented(
                 wfcx,
-                receiver_trait_def_id,
+                hard_coded_receiver_trait_def_id,
                 cause.clone(),
                 potential_self_ty,
             ) {
@@ -1860,7 +1862,7 @@ fn receiver_is_valid<'tcx>(
                 cause.clone(),
                 wfcx.param_env,
                 potential_self_ty,
-                receiver_trait_def_id,
+                hard_coded_receiver_trait_def_id,
             );
         }
     }

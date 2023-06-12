@@ -1594,7 +1594,7 @@ fn e0307(tcx: TyCtxt<'_>, span: Span, receiver_ty: Ty<'_>) -> ErrorGuaranteed {
     .emit()
 }
 
-/// Returns whether `receiver_ty` would be considered a valid receiver type for `self_ty`. 
+/// Returns whether `receiver_ty` would be considered a valid receiver type for `self_ty`.
 /// `receiver_ty` must implement `Receiver<Target = self_ty>`
 ///
 /// N.B., there are cases this function returns `true` but causes an error to be emitted,
@@ -1621,14 +1621,15 @@ fn receiver_is_valid<'tcx>(
         return true;
     }
 
-    let mut autoderef = Autoderef::new(infcx, wfcx.param_env, wfcx.body_def_id, span, receiver_ty);
+    let receiver_trait_def_id = tcx.require_lang_item(LangItem::Receiver, Some(span));
+
+    let mut autoderef =
+        Autoderef::new(infcx, wfcx.param_env, wfcx.body_def_id, span, receiver_ty, true);
 
     autoderef = autoderef.include_raw_pointers();
 
     // The first type is `receiver_ty`, which we know its not equal to `self_ty`; skip it.
     autoderef.next();
-
-    let receiver_trait_def_id = tcx.require_lang_item(LangItem::Receiver, Some(span));
 
     // Keep dereferencing `receiver_ty` until we get to `self_ty`.
     loop {
@@ -1653,12 +1654,11 @@ fn receiver_is_valid<'tcx>(
                 // We require that each step in the
                 // deref chain implement `receiver`
                 if !receiver_is_implemented(
-                        wfcx,
-                        receiver_trait_def_id,
-                        cause.clone(),
-                        potential_self_ty,
-                    )
-                {
+                    wfcx,
+                    receiver_trait_def_id,
+                    cause.clone(),
+                    potential_self_ty,
+                ) {
                     return false;
                 }
             }
@@ -1671,8 +1671,7 @@ fn receiver_is_valid<'tcx>(
     }
 
     // Wee require that `receiver_ty` implements `Receiver`.
-    if !receiver_is_implemented(wfcx, receiver_trait_def_id, cause.clone(), receiver_ty)
-    {
+    if !receiver_is_implemented(wfcx, receiver_trait_def_id, cause.clone(), receiver_ty) {
         return false;
     }
 

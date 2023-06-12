@@ -365,7 +365,6 @@ symbols! {
         any,
         append_const_msg,
         arbitrary_enum_discriminant,
-        arbitrary_self_types,
         args,
         arith_offset,
         arm,

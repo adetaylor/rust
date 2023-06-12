@@ -180,18 +180,101 @@ impl<T: ?Sized> DerefMut for &mut T {
     }
 }
 
-/// Indicates that a struct can be used as a method receiver, without the
-/// `arbitrary_self_types` feature. This is implemented by stdlib pointer types like `Box<T>`,
-/// `Rc<T>`, `&T`, and `Pin<P>`.
+/// Indicates that a struct can be used as a method receiver.
+/// That is, a type can use this type as a type of `self`, like this:
+/// ```
+/// use std::ops::Receiver;
+///
+/// struct SmartPointer<T>(T);
+///
+/// impl<T> Receiver for SmartPointer<T> {
+///    type Target = T;
+/// }
+///
+/// struct MyContainedType;
+///
+/// impl MyContainedType {
+///   fn method(self: MySmartPointer<Self>) {
+///     // ...
+///   }
+/// }
+///
+/// fn main() {
+///   let ptr = SmartPointer(MyContainedType);
+///   ptr.method();
+/// }
+/// ```
+/// This trait is automatically implemented for any type which implements
+/// [`Deref`], which includes stdlib pointer types like `Box<T>`,`Rc<T>`, `&T`,
+/// and `Pin<P>`. For that reason, it's relatively rare to need to
+/// implement this directly. You'll typically do this only if you need
+/// to implement a smart pointer type which can't implement [`Deref`]; perhaps
+/// because you're interfacing with another programming language and can't
+/// guarantee that references comply with Rust's aliasing rules.
+///
+/// When looking for method candidates, Rust will explore a chain of possible
+/// `Receiver`s, so for example each of the following methods work:
+/// ```
+/// use std::boxed::Box;
+/// use std::rc::Rc;
+///
+/// // Both Box and Rc (indirectly) implement Receiver
+///
+/// struct MyContainedType;
+///
+/// fn main() {
+///   let t = Rc::new(Box::new(MyContainedType));
+///   t.method_a();
+///   t.method_b();
+///   t.method_c();
+///   t.method_d();
+/// }
+///
+/// impl MyContainedType {
+///   fn method_a(self) {
+///
+///   }
+///   fn method_b(&self) {
+///
+///   }
+///   fn method_c(self: Box<Self>) {
+///
+///   }
+///   fn method_d(self: Rc<Box<Self>>) {
+///
+///   }
+/// }
+/// ```
 #[lang = "receiver"]
 #[unstable(feature = "receiver_trait", issue = "none")]
-#[doc(hidden)]
 pub trait Receiver {
-    // Empty.
+    /// The target type on which the method may be called.
+    #[cfg(not(bootstrap))]
+    #[rustc_diagnostic_item = "receiver_target"]
+    #[lang = "receiver_target"]
+    #[unstable(feature = "receiver_trait", issue = "none")]
+    type Target: ?Sized;
 }
 
+#[cfg(bootstrap)]
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<T: ?Sized> Receiver for &T {}
+impl<T: ?Sized> Receiver for &T {
+    #[cfg(not(bootstrap))]
+    type Target = T;
+}
 
+#[cfg(bootstrap)]
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<T: ?Sized> Receiver for &mut T {}
+impl<T: ?Sized> Receiver for &mut T {
+    #[cfg(not(bootstrap))]
+    type Target = T;
+}
+
+#[cfg(not(bootstrap))]
+#[unstable(feature = "receiver_trait", issue = "none")]
+impl<P: ?Sized, T: ?Sized> Receiver for P
+where
+    P: Deref<Target = T>,
+{
+    type Target = T;
+}

@@ -158,9 +158,9 @@ use core::iter::FusedIterator;
 use core::marker::Tuple;
 use core::marker::Unsize;
 use core::mem::{self, SizedTypeProperties};
-use core::ops::{
-    CoerceUnsized, Coroutine, CoroutineState, Deref, DerefMut, DispatchFromDyn, Receiver,
-};
+#[cfg(bootstrap)]
+use core::ops::Receiver;
+use core::ops::{CoerceUnsized, Coroutine, CoroutineState, Deref, DerefMut, DispatchFromDyn};
 use core::pin::Pin;
 use core::ptr::{self, NonNull, Unique};
 use core::task::{Context, Poll};
@@ -1932,6 +1932,7 @@ impl<T: ?Sized, A: Allocator> DerefMut for Box<T, A> {
 }
 
 #[unstable(feature = "receiver_trait", issue = "none")]
+#[cfg(bootstrap)]
 impl<T: ?Sized, A: Allocator> Receiver for Box<T, A> {}
 
 #[stable(feature = "rust1", since = "1.0.0")]

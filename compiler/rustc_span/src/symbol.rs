@@ -1309,6 +1309,7 @@ symbols! {
         realloc,
         reason,
         receiver,
+        receiver_target,
         recursion_limit,
         reexport_test_harness_main,
         ref_unwind_safe_trait,

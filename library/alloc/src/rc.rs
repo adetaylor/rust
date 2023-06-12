@@ -259,7 +259,9 @@ use core::marker::{PhantomData, Unsize};
 #[cfg(not(no_global_oom_handling))]
 use core::mem::size_of_val;
 use core::mem::{self, align_of_val_raw, forget, ManuallyDrop};
-use core::ops::{CoerceUnsized, Deref, DerefMut, DispatchFromDyn, Receiver};
+#[cfg(bootstrap)]
+use core::ops::Receiver;
+use core::ops::{CoerceUnsized, Deref, DerefMut, DispatchFromDyn};
 use core::panic::{RefUnwindSafe, UnwindSafe};
 #[cfg(not(no_global_oom_handling))]
 use core::pin::Pin;
@@ -2055,6 +2057,7 @@ impl<T: ?Sized, A: Allocator> Deref for Rc<T, A> {
 }
 
 #[unstable(feature = "receiver_trait", issue = "none")]
+#[cfg(bootstrap)]
 impl<T: ?Sized> Receiver for Rc<T> {}
 
 #[stable(feature = "rust1", since = "1.0.0")]

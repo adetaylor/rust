@@ -131,11 +131,14 @@ macro_rules! impl_fn_mut_tuple {
 //impl_fn_mut_tuple!(A B C D E);
 
 #[lang = "receiver"]
-trait Receiver {}
+trait Receiver {
+    #[lang = "receiver_target"]
+    type Target: ?Sized;
+}
 
-impl<T: ?Sized> Receiver for &T {}
-
-impl<T: ?Sized> Receiver for &mut T {}
+impl<T: ?Sized + Deref> Receiver for T {
+    type Target = <T as Deref>::Target;
+}
 
 #[lang = "destruct"]
 #[const_trait]
@@ -241,7 +244,6 @@ trait Deref {
 
     fn deref(&self) -> &Self::Target;
 }
-
 
 impl<T: ?Sized> /* const */ Deref for &T {
     type Target = T;
@@ -438,8 +440,6 @@ impl<T> /* const */ Deref for Option<T> {
         loop {}
     }
 }
-
-impl<P: Receiver> Receiver for Pin<P> {}
 
 impl<T: Clone> Clone for RefCell<T> {
     fn clone(&self) -> RefCell<T> {

@@ -15,13 +15,13 @@ LL |     let x = 42_i32 + 43_i32;
    |             i32
 
 error[E0600]: cannot apply unary operator `!` to type `bool`
-  --> $DIR/minicore.rs:343:9
+  --> $DIR/minicore.rs:345:9
    |
 LL |         !self.eq(other)
    |         ^^^^^^^^^^^^^^^ cannot apply unary operator `!`
 
 error[E0600]: cannot apply unary operator `!` to type `bool`
-  --> $DIR/minicore.rs:365:9
+  --> $DIR/minicore.rs:367:9
    |
 LL |         !self
    |         ^^^^^ cannot apply unary operator `!`

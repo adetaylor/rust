@@ -1,5 +1,5 @@
-#![feature(arbitrary_self_types)]
 #![allow(non_snake_case)]
+
 
 use std::marker::PhantomData;
 use std::ops::Deref;

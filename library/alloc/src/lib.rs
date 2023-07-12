@@ -91,6 +91,7 @@
 //
 // Library features:
 // tidy-alphabetical-start
+#![cfg_attr(bootstrap, feature(receiver_trait))]
 #![cfg_attr(not(no_global_oom_handling), feature(const_alloc_error))]
 #![cfg_attr(not(no_global_oom_handling), feature(const_btree_len))]
 #![cfg_attr(test, feature(is_sorted))]
@@ -141,7 +142,6 @@
 #![feature(ptr_internals)]
 #![feature(ptr_metadata)]
 #![feature(ptr_sub_ptr)]
-#![feature(receiver_trait)]
 #![feature(saturating_int_impl)]
 #![feature(set_ptr_value)]
 #![feature(sized_type_properties)]

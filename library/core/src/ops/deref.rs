@@ -184,6 +184,7 @@ impl<T: ?Sized> DerefMut for &mut T {
 /// `arbitrary_self_types` feature. This is implemented by stdlib pointer types like `Box<T>`,
 /// `Rc<T>`, `&T`, and `Pin<P>`.
 #[lang = "receiver"]
+#[cfg(bootstrap)]
 #[unstable(feature = "receiver_trait", issue = "none")]
 #[doc(hidden)]
 pub trait Receiver {
@@ -191,7 +192,9 @@ pub trait Receiver {
 }
 
 #[unstable(feature = "receiver_trait", issue = "none")]
+#[cfg(bootstrap)]
 impl<T: ?Sized> Receiver for &T {}
 
 #[unstable(feature = "receiver_trait", issue = "none")]
+#[cfg(bootstrap)]
 impl<T: ?Sized> Receiver for &mut T {}

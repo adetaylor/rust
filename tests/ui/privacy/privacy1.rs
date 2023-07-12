@@ -12,14 +12,9 @@ pub trait Deref {
     type Target;
 }
 
-#[lang="receiver"]
-pub trait Receiver: Deref {}
-
 impl<'a, T> Deref for &'a T {
     type Target = T;
 }
-
-impl<'a, T> Receiver for &'a T {}
 
 mod bar {
     // shouldn't bring in too much

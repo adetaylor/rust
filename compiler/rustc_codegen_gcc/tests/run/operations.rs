@@ -6,7 +6,7 @@
 //     10
 
 #![allow(unused_attributes)]
-#![feature(auto_traits, lang_items, no_core, start, intrinsics, arbitrary_self_types)]
+#![feature(auto_traits, lang_items, no_core, start, intrinsics)]
 
 #![no_std]
 #![no_core]

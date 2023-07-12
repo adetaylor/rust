@@ -158,9 +158,9 @@ use core::iter::FusedIterator;
 use core::marker::Tuple;
 use core::marker::Unsize;
 use core::mem;
-use core::ops::{
-    CoerceUnsized, Deref, DerefMut, DispatchFromDyn, Generator, GeneratorState, Receiver,
-};
+#[cfg(bootstrap)]
+use core::ops::Receiver;
+use core::ops::{CoerceUnsized, Deref, DerefMut, DispatchFromDyn, Generator, GeneratorState};
 use core::pin::Pin;
 use core::ptr::{self, Unique};
 use core::task::{Context, Poll};
@@ -1910,6 +1910,7 @@ impl<T: ?Sized, A: Allocator> DerefMut for Box<T, A> {
 }
 
 #[unstable(feature = "receiver_trait", issue = "none")]
+#[cfg(bootstrap)]
 impl<T: ?Sized, A: Allocator> Receiver for Box<T, A> {}
 
 #[stable(feature = "rust1", since = "1.0.0")]

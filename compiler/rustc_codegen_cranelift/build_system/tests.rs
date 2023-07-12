@@ -64,8 +64,8 @@ const NO_SYSROOT_SUITE: &[TestCase] = &[
 
 const BASE_SYSROOT_SUITE: &[TestCase] = &[
     TestCase::build_bin_and_run(
-        "aot.arbitrary_self_types_pointers_and_wrappers",
-        "example/arbitrary_self_types_pointers_and_wrappers.rs",
+        "aot.pointers_and_wrappers",
+        "example/pointers_and_wrappers.rs",
         &[],
     ),
     TestCase::build_bin_and_run(

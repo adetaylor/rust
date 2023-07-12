@@ -1,10 +1,11 @@
 // Adapted from rustc run-pass test suite
 
-#![feature(arbitrary_self_types, unsize, coerce_unsized, dispatch_from_dyn)]
+#![feature(unsize, coerce_unsized, dispatch_from_dyn)]
+#![feature(rustc_attrs)]
 
 use std::{
+    ops::{Deref, CoerceUnsized, DispatchFromDyn},
     marker::Unsize,
-    ops::{CoerceUnsized, Deref, DispatchFromDyn},
 };
 
 struct Ptr<T: ?Sized>(Box<T>);
@@ -32,6 +33,7 @@ impl<T: ?Sized> Deref for Wrapper<T> {
 
 impl<T: CoerceUnsized<U>, U> CoerceUnsized<Wrapper<U>> for Wrapper<T> {}
 impl<T: DispatchFromDyn<U>, U> DispatchFromDyn<Wrapper<U>> for Wrapper<T> {}
+
 
 trait Trait {
     // This method isn't object-safe yet. Unsized by-value `self` is object-safe (but not callable

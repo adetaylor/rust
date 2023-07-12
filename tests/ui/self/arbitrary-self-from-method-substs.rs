@@ -1,5 +1,3 @@
-#![feature(arbitrary_self_types)]
-
 use std::ops::Deref;
 
 struct Foo(u32);

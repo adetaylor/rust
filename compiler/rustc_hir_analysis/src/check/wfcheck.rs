@@ -29,6 +29,7 @@ use rustc_trait_selection::traits::{
     self, ObligationCause, ObligationCauseCode, ObligationCtxt, WellFormedLoc,
 };
 
+use std::borrow::Cow;
 use std::cell::LazyCell;
 use std::ops::{ControlFlow, Deref};
 
@@ -1558,6 +1559,19 @@ const HELP_FOR_SELF_TYPE: &str = "consider changing to `self`, `&self`, `&mut se
      `self: Rc<Self>`, `self: Arc<Self>`, or `self: Pin<P>` (where P is one \
      of the previous types except `Self`)";
 
+const _HELP_FOR_SIZED_SELF_TYPE: &str = ". The self-type implements Receiver, but only for Sized targets. \
+    The receiver type may not always be Sized in this case. Consider adjusting the Receiver to specify \
+    Sized, or implementing Receiver for ?Sized.";
+
+const HELP_FOR_PTRS: &str = ". Raw pointers do not implement Receiver. Consider wrapping your pointer in \
+    a newtype wrapper for which you implement Receiver.";
+
+const _HELP_FOR_NONNULL: &str = ". NonNull does not implement Receiver. Consider wrapping your NonNull in \
+    a newtype wrapper for which you implement Receiver.";
+
+const _HELP_FOR_WEAK: &str = ". Weak does not implement Receiver. Consider wrapping your Weak in \
+    a newtype wrapper for which you implement Receiver.";
+
 #[instrument(level = "debug", skip(wfcx))]
 fn check_method_receiver<'tcx>(
     wfcx: &WfCheckingCtxt<'_, 'tcx>,
@@ -1585,11 +1599,31 @@ fn check_method_receiver<'tcx>(
     let receiver_ty = wfcx.normalize(span, None, receiver_ty);
 
     if !receiver_is_valid(wfcx, span, receiver_ty, self_ty) {
-        e0307(tcx, span, receiver_ty);
+        let mut extra_help = None;
+        // yet to do: determine whether self_ty is Sized. If not (most commonly
+        // if it's a trait) determine whether receiver_ty::Target is Sized.
+        // If so, arrange to emit the extra help in _HELP_FOR_SIZED_SELF_TYPE.
+        // Then adjust tests/ui/self/arbitrary_self_types_sizedness_trait.rs
+        // to match.
+        // yet to do: determine whether self_ty is NonNull or Weak, and use
+        // _HELP_FOR_NONNULL and _HELP_FOR_WEAK as appropriate. No tests yet
+        // exist for this.
+        if is_raw_pointer(receiver_ty) {
+            extra_help = Some(HELP_FOR_PTRS);
+        }
+        e0307(tcx, span, receiver_ty, extra_help);
     }
 }
 
-fn e0307(tcx: TyCtxt<'_>, span: Span, receiver_ty: Ty<'_>) {
+fn e0307(tcx: TyCtxt<'_>, span: Span, receiver_ty: Ty<'_>, extra_help: Option<&'static str>) {
+    let help = match extra_help {
+        None => Cow::Borrowed(HELP_FOR_SELF_TYPE),
+        Some(extra_help) => Cow::Owned({
+            let mut s = HELP_FOR_SELF_TYPE.to_string();
+            s.push_str(extra_help);
+            s
+        }),
+    };
     struct_span_err!(
         tcx.sess.diagnostic(),
         span,
@@ -1597,8 +1631,12 @@ fn e0307(tcx: TyCtxt<'_>, span: Span, receiver_ty: Ty<'_>) {
         "invalid `self` parameter type: {receiver_ty}"
     )
     .note("type of `self` must be `Self` or some type implementing Receiver")
-    .help(HELP_FOR_SELF_TYPE)
+    .help(help)
     .emit();
+}
+
+fn is_raw_pointer<'tcx>(ty: Ty<'tcx>) -> bool {
+    matches!(ty.kind(), ty::RawPtr(_))
 }
 
 /// Returns whether `receiver_ty` would be considered a valid receiver type for `self_ty`.

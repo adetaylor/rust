@@ -1678,11 +1678,21 @@ fn check_method_receiver<'tcx>(
         ArbitrarySelfTypesLevel::None
     };
 
+    // yet to do: determine whether self_ty is Sized. If not (most commonly
+    // if it's a trait) determine whether receiver_ty::Target is Sized.
+    // If so, arrange to emit the extra help in _HELP_FOR_SIZED_SELF_TYPE.
+    // Then adjust tests/ui/self/arbitrary_self_types_sizedness_trait.rs
+    // to match.
+    // yet to do: determine whether self_ty is NonNull or Weak, and use
+    // _HELP_FOR_NONNULL and _HELP_FOR_WEAK as appropriate. No tests yet
+    // exist for this.
+    let raw_pointer = is_raw_pointer(receiver_ty);
+
     if !receiver_is_valid(wfcx, span, receiver_ty, self_ty, arbitrary_self_types_level) {
         return match arbitrary_self_types_level {
-            ArbitrarySelfTypesLevel::ArbitrarySelfTypesPointers => {
-                Err(tcx.dcx().emit_err(errors::InvalidReceiverTy { span, receiver_ty }))
-            }
+            ArbitrarySelfTypesLevel::ArbitrarySelfTypesPointers => Err(tcx
+                .dcx()
+                .emit_err(errors::InvalidReceiverTy { span, receiver_ty, raw_pointer })),
             ArbitrarySelfTypesLevel::ArbitrarySelfTypes => {
                 Err(
                     if receiver_is_valid(
@@ -1706,7 +1716,11 @@ fn check_method_receiver<'tcx>(
                         .emit()
                     } else {
                         // Report error; would not have worked with `arbitrary_self_types_pointers`.
-                        tcx.dcx().emit_err(errors::InvalidReceiverTy { span, receiver_ty })
+                        tcx.dcx().emit_err(errors::InvalidReceiverTy {
+                            span,
+                            receiver_ty,
+                            raw_pointer,
+                        })
                     },
                 )
             }
@@ -1752,13 +1766,21 @@ fn check_method_receiver<'tcx>(
                         .emit()
                     } else {
                         // Report error; would not have worked with `arbitrary_self_types[_pointers]`.
-                        tcx.dcx().emit_err(errors::InvalidReceiverTy { span, receiver_ty })
+                        tcx.dcx().emit_err(errors::InvalidReceiverTy {
+                            span,
+                            receiver_ty,
+                            raw_pointer,
+                        })
                     },
                 )
             }
         };
     }
     Ok(())
+}
+
+fn is_raw_pointer<'tcx>(ty: Ty<'tcx>) -> bool {
+    matches!(ty.kind(), ty::RawPtr(..))
 }
 
 /// Returns whether `receiver_ty` would be considered a valid receiver type for `self_ty`. If

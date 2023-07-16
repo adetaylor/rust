@@ -1546,7 +1546,8 @@ fn check_fn_or_method<'tcx>(
     }
 }
 
-const HELP_FOR_SELF_TYPE: &str = "consider changing to `self`, `&self`, `&mut self`, `self: Box<Self>`, \
+const HELP_FOR_SELF_TYPE: &str = "consider changing to `self`, `&self`, `&mut self`, or a type \
+     implementing `Receiver`: for example `self: Box<Self>`, \
      `self: Rc<Self>`, `self: Arc<Self>`, or `self: Pin<P>` (where P is one \
      of the previous types except `Self`)";
 
@@ -1589,7 +1590,7 @@ fn e0307(tcx: TyCtxt<'_>, span: Span, receiver_ty: Ty<'_>) -> ErrorGuaranteed {
         E0307,
         "invalid `self` parameter type: {receiver_ty}"
     )
-    .note("type of `self` must be `Self` or a type that dereferences to it")
+    .note("type of `self` must be `Self` or some type implementing Receiver")
     .help(HELP_FOR_SELF_TYPE)
     .emit()
 }

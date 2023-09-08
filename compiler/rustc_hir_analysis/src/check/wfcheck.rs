@@ -1670,8 +1670,6 @@ fn receiver_is_valid<'tcx>(
     let mut autoderef =
         Autoderef::new(infcx, wfcx.param_env, wfcx.body_def_id, span, receiver_ty, true);
 
-    autoderef = autoderef.include_raw_pointers();
-
     // The first type is `receiver_ty`, which we know its not equal to `self_ty`; skip it.
     autoderef.next();
 
@@ -1712,11 +1710,6 @@ fn receiver_is_valid<'tcx>(
             // unnecessary errors (#58712).
             return receiver_ty.references_error();
         }
-    }
-
-    // Wee require that `receiver_ty` implements `Receiver`.
-    if !receiver_is_implemented(wfcx, receiver_trait_def_id, cause.clone(), receiver_ty) {
-        return false;
     }
 
     true

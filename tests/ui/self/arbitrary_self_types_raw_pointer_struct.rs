@@ -1,20 +1,19 @@
+// run-pass
+
 use std::rc::Rc;
 
 struct Foo(String);
 
 impl Foo {
     unsafe fn foo(self: *const Self) -> *const str {
-        //~^ ERROR: invalid `self` parameter type
         (*self).0.as_ref()
     }
 
     fn complicated_1(self: *const Rc<Self>) -> &'static str {
-        //~^ ERROR: invalid `self` parameter type
         "Foo::complicated_1"
     }
 
     unsafe fn complicated_2(self: Rc<*const Self>) -> *const str {
-        //~^ ERROR: invalid `self` parameter type
         (**self).0.as_ref()
     }
 }

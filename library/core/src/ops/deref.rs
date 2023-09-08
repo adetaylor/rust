@@ -367,6 +367,18 @@ impl<T: ?Sized> Receiver for &mut T {
 
 #[cfg(not(bootstrap))]
 #[unstable(feature = "receiver_trait", issue = "none")]
+impl<T: ?Sized> Receiver for *const T {
+    type Target = T;
+}
+
+#[cfg(not(bootstrap))]
+#[unstable(feature = "receiver_trait", issue = "none")]
+impl<T: ?Sized> Receiver for *mut T {
+    type Target = T;
+}
+
+#[cfg(not(bootstrap))]
+#[unstable(feature = "receiver_trait", issue = "none")]
 impl<P: ?Sized, T: ?Sized> Receiver for P
 where
     P: Deref<Target = T>,

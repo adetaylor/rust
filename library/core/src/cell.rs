@@ -240,6 +240,8 @@ use crate::fmt::{self, Debug, Display};
 use crate::marker::{PhantomData, Unsize};
 use crate::mem;
 use crate::ops::{CoerceUnsized, Deref, DerefMut, DispatchFromDyn};
+#[cfg(not(bootstrap))]
+use crate::ops::{Receiver};
 use crate::ptr::{self, NonNull};
 
 mod lazy;
@@ -1403,6 +1405,12 @@ impl<T: ?Sized> Deref for Ref<'_, T> {
         // SAFETY: the value is accessible as long as we hold our borrow.
         unsafe { self.value.as_ref() }
     }
+}
+
+#[cfg(not(bootstrap))]
+#[unstable(feature = "receiver_trait", issue = "none")]
+impl<T: ?Sized> Receiver for Ref<'_, T> {
+    type Target = T;
 }
 
 impl<'b, T: ?Sized> Ref<'b, T> {

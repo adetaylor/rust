@@ -158,7 +158,6 @@ use core::iter::FusedIterator;
 use core::marker::Tuple;
 use core::marker::Unsize;
 use core::mem;
-#[cfg(bootstrap)]
 use core::ops::Receiver;
 use core::ops::{CoerceUnsized, Deref, DerefMut, DispatchFromDyn, Generator, GeneratorState};
 use core::pin::Pin;
@@ -1910,8 +1909,10 @@ impl<T: ?Sized, A: Allocator> DerefMut for Box<T, A> {
 }
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-#[cfg(bootstrap)]
-impl<T: ?Sized, A: Allocator> Receiver for Box<T, A> {}
+impl<T: ?Sized, A: Allocator> Receiver for Box<T, A> {
+    #[cfg(not(bootstrap))]
+    type Target = T;
+}
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<I: Iterator + ?Sized, A: Allocator> Iterator for Box<I, A> {

@@ -387,7 +387,6 @@ use crate::hash::{Hash, Hasher};
 use crate::marker::{Sized, Unpin};
 use crate::ops::{CoerceUnsized, Deref, DerefMut, DispatchFromDyn};
 
-#[cfg(bootstrap)]
 use crate::ops::Receiver;
 
 /// A pinned pointer.
@@ -973,9 +972,33 @@ impl<P: DerefMut<Target: Unpin>> DerefMut for Pin<P> {
     }
 }
 
-#[cfg(bootstrap)]
 #[unstable(feature = "receiver_trait", issue = "none")]
+#[cfg(bootstrap)]
 impl<P: Receiver> Receiver for Pin<P> {}
+
+// #[unstable(feature = "receiver_trait", issue = "none")]
+// #[cfg(not(bootstrap))]
+// impl<T: ?Sized, P: ?Sized> Receiver for Pin<P> {
+//     type Target = T;
+// }
+
+#[cfg(not(bootstrap))]
+#[unstable(feature = "receiver_trait", issue = "none")]
+impl<P> Receiver for Pin<P>
+where
+    P: Deref,
+{
+    type Target = P::Target;
+}
+
+// -#[cfg(not(bootstrap))]
+// -#[unstable(feature = "receiver_trait", issue = "none")]
+// -impl<P: ?Sized, T: ?Sized> Receiver for P
+// -where
+// -    P: Deref<Target = T>,
+// -{
+// -    type Target = T;
+// -}
 
 #[stable(feature = "pin", since = "1.33.0")]
 impl<P: fmt::Debug> fmt::Debug for Pin<P> {

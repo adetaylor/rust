@@ -1,4 +1,6 @@
 use crate::ops::{Deref, DerefMut};
+#[cfg(not(bootstrap))]
+use crate::ops::Receiver;
 use crate::ptr;
 
 /// A wrapper to inhibit compiler from automatically calling `T`’s destructor.
@@ -152,6 +154,12 @@ impl<T: ?Sized> Deref for ManuallyDrop<T> {
     fn deref(&self) -> &T {
         &self.value
     }
+}
+
+#[cfg(not(bootstrap))]
+#[unstable(feature = "receiver_trait", issue = "none")]
+impl<T: ?Sized> Receiver for ManuallyDrop<T> {
+    type Target = T;
 }
 
 #[stable(feature = "manually_drop", since = "1.20.0")]

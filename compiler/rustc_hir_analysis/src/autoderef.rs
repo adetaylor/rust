@@ -23,6 +23,10 @@ struct AutoderefSnapshot<'tcx> {
     obligations: Vec<traits::PredicateObligation<'tcx>>,
 }
 
+/// Recursively dereference a type, considering both built-in
+/// dereferences (`*`) and the `Deref` trait.
+/// Although called `Autoderef` it can be configured to use the
+/// `Receiver` trait instead of the `Deref` trait.
 pub struct Autoderef<'a, 'tcx> {
     // Meta infos:
     infcx: &'a InferCtxt<'tcx>,
@@ -66,6 +70,14 @@ impl<'a, 'tcx> Iterator for Autoderef<'a, 'tcx> {
         }
 
         // Otherwise, deref if type is derefable:
+        // NOTE: in the case of self.use_receiver_trait = true, you might think it would
+        // be better to skip this clause and use the Overloaded case only, since &T
+        // and &mut T implement Receiver. (They don't implement Deref). We can't do that
+        // for a couple of reasons - first, there is magic in the builtin * to allow
+        // calls to fn a(&mut self) if there's a: &mut T even if 'a' itself is not mutable.
+        // Secondly the builtin deref can work in constant contexts.
+        // So even for Receiver-based autodereferencing, we need to retain
+        // use of the built-in dereference *.
         let (kind, new_ty) = if let Some(ty::TypeAndMut { ty, .. }) =
             self.state.cur_ty.builtin_deref(self.include_raw_pointers)
         {

@@ -12,6 +12,9 @@ use crate::ptr;
 use crate::ptr::Unique;
 use crate::slice::{self, SliceIndex};
 
+#[cfg(not(bootstrap))]
+use crate::ops::Receiver;
+
 /// `*mut T` but non-zero and [covariant].
 ///
 /// This is often the correct thing to use when building data structures using
@@ -1854,4 +1857,10 @@ impl<T: ?Sized> From<&T> for NonNull<T> {
         // new_unchecked() are respected.
         unsafe { NonNull { pointer: reference as *const T } }
     }
+}
+
+#[cfg(not(bootstrap))]
+#[unstable(feature = "receiver_trait", issue = "none")]
+impl<T: ?Sized> Receiver for NonNull<T> {
+    type Target = T;
 }

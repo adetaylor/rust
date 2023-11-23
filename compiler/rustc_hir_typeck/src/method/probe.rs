@@ -135,6 +135,7 @@ pub(crate) struct Candidate<'tcx> {
     pub(crate) item: ty::AssocItem,
     pub(crate) kind: CandidateKind<'tcx>,
     pub(crate) import_ids: SmallVec<[LocalDefId; 1]>,
+    depth: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -670,11 +671,15 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
 
     fn assemble_inherent_candidates(&mut self) {
         for step in self.steps.iter() {
-            self.assemble_probe(&step.self_ty);
+            self.assemble_probe(&step.self_ty, step.autoderefs);
         }
     }
 
-    fn assemble_probe(&mut self, self_ty: &Canonical<'tcx, QueryResponse<'tcx, Ty<'tcx>>>) {
+    fn assemble_probe(
+        &mut self,
+        self_ty: &Canonical<'tcx, QueryResponse<'tcx, Ty<'tcx>>>,
+        depth: usize,
+    ) {
         debug!("assemble_probe: self_ty={:?}", self_ty);
         let raw_self_ty = self_ty.value.value;
         match *raw_self_ty.kind() {
@@ -699,27 +704,27 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                 let (QueryResponse { value: generalized_self_ty, .. }, _ignored_var_values) =
                     self.fcx.instantiate_canonical_with_fresh_inference_vars(self.span, self_ty);
 
-                self.assemble_inherent_candidates_from_object(generalized_self_ty);
-                self.assemble_inherent_impl_candidates_for_type(p.def_id());
+                self.assemble_inherent_candidates_from_object(generalized_self_ty, depth);
+                self.assemble_inherent_impl_candidates_for_type(p.def_id(), depth);
                 if self.tcx.has_attr(p.def_id(), sym::rustc_has_incoherent_inherent_impls) {
-                    self.assemble_inherent_candidates_for_incoherent_ty(raw_self_ty);
+                    self.assemble_inherent_candidates_for_incoherent_ty(raw_self_ty, depth);
                 }
             }
             ty::Adt(def, _) => {
                 let def_id = def.did();
-                self.assemble_inherent_impl_candidates_for_type(def_id);
+                self.assemble_inherent_impl_candidates_for_type(def_id, depth);
                 if self.tcx.has_attr(def_id, sym::rustc_has_incoherent_inherent_impls) {
-                    self.assemble_inherent_candidates_for_incoherent_ty(raw_self_ty);
+                    self.assemble_inherent_candidates_for_incoherent_ty(raw_self_ty, depth);
                 }
             }
             ty::Foreign(did) => {
-                self.assemble_inherent_impl_candidates_for_type(did);
+                self.assemble_inherent_impl_candidates_for_type(did, depth);
                 if self.tcx.has_attr(did, sym::rustc_has_incoherent_inherent_impls) {
-                    self.assemble_inherent_candidates_for_incoherent_ty(raw_self_ty);
+                    self.assemble_inherent_candidates_for_incoherent_ty(raw_self_ty, depth);
                 }
             }
             ty::Param(p) => {
-                self.assemble_inherent_candidates_from_param(p);
+                self.assemble_inherent_candidates_from_param(p, depth);
             }
             ty::Bool
             | ty::Char
@@ -732,28 +737,28 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             | ty::RawPtr(_)
             | ty::Ref(..)
             | ty::Never
-            | ty::Tuple(..) => self.assemble_inherent_candidates_for_incoherent_ty(raw_self_ty),
+            | ty::Tuple(..) => self.assemble_inherent_candidates_for_incoherent_ty(raw_self_ty, depth),
             _ => {}
         }
     }
 
-    fn assemble_inherent_candidates_for_incoherent_ty(&mut self, self_ty: Ty<'tcx>) {
+    fn assemble_inherent_candidates_for_incoherent_ty(&mut self, self_ty: Ty<'tcx>, depth: usize) {
         let Some(simp) = simplify_type(self.tcx, self_ty, TreatParams::AsCandidateKey) else {
             bug!("unexpected incoherent type: {:?}", self_ty)
         };
         for &impl_def_id in self.tcx.incoherent_impls(simp) {
-            self.assemble_inherent_impl_probe(impl_def_id);
+            self.assemble_inherent_impl_probe(impl_def_id, depth);
         }
     }
 
-    fn assemble_inherent_impl_candidates_for_type(&mut self, def_id: DefId) {
+    fn assemble_inherent_impl_candidates_for_type(&mut self, def_id: DefId, depth: usize) {
         let impl_def_ids = self.tcx.at(self.span).inherent_impls(def_id);
         for &impl_def_id in impl_def_ids.iter() {
-            self.assemble_inherent_impl_probe(impl_def_id);
+            self.assemble_inherent_impl_probe(impl_def_id, depth);
         }
     }
 
-    fn assemble_inherent_impl_probe(&mut self, impl_def_id: DefId) {
+    fn assemble_inherent_impl_probe(&mut self, impl_def_id: DefId, depth: usize) {
         if !self.impl_dups.insert(impl_def_id) {
             return; // already visited
         }
@@ -801,13 +806,14 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                     item,
                     kind: InherentImplCandidate(impl_args, obligations),
                     import_ids: smallvec![],
+                    depth,
                 },
                 true,
             );
         }
     }
 
-    fn assemble_inherent_candidates_from_object(&mut self, self_ty: Ty<'tcx>) {
+    fn assemble_inherent_candidates_from_object(&mut self, self_ty: Ty<'tcx>, depth: usize) {
         debug!("assemble_inherent_candidates_from_object(self_ty={:?})", self_ty);
 
         let principal = match self_ty.kind() {
@@ -850,13 +856,14 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                     item,
                     kind: ObjectCandidate,
                     import_ids: smallvec![],
+                    depth,
                 },
                 true,
             );
         });
     }
 
-    fn assemble_inherent_candidates_from_param(&mut self, param_ty: ty::ParamTy) {
+    fn assemble_inherent_candidates_from_param(&mut self, param_ty: ty::ParamTy, depth: usize) {
         // FIXME: do we want to commit to this behavior for param bounds?
         debug!("assemble_inherent_candidates_from_param(param_ty={:?})", param_ty);
 
@@ -897,6 +904,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                     item,
                     kind: WhereClauseCandidate(poly_trait_ref),
                     import_ids: smallvec![],
+                    depth,
                 },
                 true,
             );
@@ -1014,6 +1022,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                                 item,
                                 import_ids: import_ids.clone(),
                                 kind: TraitCandidate(new_trait_ref),
+                                depth: 0usize,
                             },
                             false,
                         );
@@ -1042,6 +1051,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                         item,
                         import_ids: import_ids.clone(),
                         kind: TraitCandidate(trait_ref),
+                        depth: 0usize,
                     },
                     false,
                 );
@@ -1359,6 +1369,28 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                 }
                 true
             });
+        }
+
+        // We want to avoid compatibility breaks if we have SmartPtr<Concrete>,
+        // the user is calling smart_ptr.wardrobe() expecting to call
+        // Concrete::wardrobe(), but then SmartPtr adds a wardrobe() method.
+        // So if there are multiple applicable candidates, and a single one
+        // of them involved more deref/receiver chain hops than all the others,
+        // we pick that one: but show a warning.
+        if applicable_candidates.len() > 1 {
+            let greatest_depth =
+                applicable_candidates.iter().map(|(candidate, _)| candidate.depth).max().unwrap();
+            let number_of_candidates_with_greatest_depth = applicable_candidates
+                .iter()
+                .filter(|(candidate, _)| candidate.depth == greatest_depth)
+                .count();
+            if number_of_candidates_with_greatest_depth == 1 {
+                // FIXME: emit warning here, unless this is something we should
+                // have done earlier e.g. in wfcheck.rs
+                info!("Multiple candidates detected, picking the innermost");
+                // Emit a warning, and retain a single candidate
+                applicable_candidates.retain(|(candidate, _)| candidate.depth == greatest_depth);
+            }
         }
 
         if applicable_candidates.len() > 1 {

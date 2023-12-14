@@ -537,10 +537,14 @@ fn method_autoderef_steps<'tcx>(
             .chain(std::iter::repeat(false));
 
     let mut reached_raw_pointer = false;
+    let mut final_ty_reachable_by_deref = None;
     let mut steps: Vec<_> = autoderef_via_receiver
         .by_ref()
         .zip(reachable_via_deref)
         .map(|((ty, d), reachable_via_deref)| {
+            if reachable_via_deref {
+                final_ty_reachable_by_deref = Some(ty);
+            }
             let step = CandidateStep {
                 self_ty: infcx.make_query_response_ignoring_pending_obligations(inference_vars, ty),
                 autoderefs: d,
@@ -555,12 +559,15 @@ fn method_autoderef_steps<'tcx>(
             step
         })
         .collect();
-    let final_ty = autoderef_via_receiver.final_ty(true);
+    let final_ty =
+        final_ty_reachable_by_deref.expect("Should be at least one type in any autoderef");
+    let final_ty = infcx.resolve_vars_if_possible(final_ty);
     let opt_bad_ty = match final_ty.kind() {
         ty::Infer(ty::TyVar(_)) | ty::Error(_) => Some(MethodAutoderefBadTy {
             reached_raw_pointer,
             ty: infcx.make_query_response_ignoring_pending_obligations(inference_vars, final_ty),
         }),
+
         ty::Array(elem_ty, _) => {
             let dereferences = steps.len() - 1;
             let reachable_via_deref =
@@ -583,6 +590,10 @@ fn method_autoderef_steps<'tcx>(
         }
         _ => None,
     };
+
+    // FIXME - the previous section may emit an error if the final type reachable
+    // by the Deref chain is ty::Infer(ty::TyVar(_)). We should consider emitting a warning
+    // if the final type reachable by the Receiver chain is similarly problematic.
 
     debug!("method_autoderef_steps: steps={:?} opt_bad_ty={:?}", steps, opt_bad_ty);
 

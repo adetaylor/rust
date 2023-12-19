@@ -215,6 +215,9 @@ pub struct Pick<'tcx> {
 
     /// Unstable candidates alongside the stable ones.
     unstable_candidates: Vec<(Candidate<'tcx>, Symbol)>,
+
+    /// Depth per Receiver trait
+    pub depth: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -737,7 +740,9 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             | ty::RawPtr(_)
             | ty::Ref(..)
             | ty::Never
-            | ty::Tuple(..) => self.assemble_inherent_candidates_for_incoherent_ty(raw_self_ty, depth),
+            | ty::Tuple(..) => {
+                self.assemble_inherent_candidates_for_incoherent_ty(raw_self_ty, depth)
+            }
             _ => {}
         }
     }
@@ -1200,9 +1205,80 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                     hir::Mutability::Mut,
                     unstable_candidates.as_deref_mut(),
                 );
-                let const_ptr_pick =
-                    self.pick_const_ptr_method(step, self_ty, unstable_candidates.as_deref_mut());
-                by_value_pick.or(autoref_pick).or(autoref_mut_pick).or(const_ptr_pick)
+
+                // Check for cases where arbitrary self types allows shadowing
+                // of methods that might be a compatibility break. Specifically,
+                // we have something like:
+                // struct A;
+                // impl A {
+                //   fn foo(self: &NonNull<A>) {}
+                //      // note this is by reference
+                // }
+                // then we've come along and added this method to NonNull:
+                //   fn foo(self)  // note this is by value
+                let possible_shadowing_order = [
+                    by_value_pick.as_ref(),
+                    autoref_pick.as_ref(),
+                    autoref_mut_pick.as_ref(),
+                    // We allow new methods that take *mut T to shadow
+                    // methods which took *const T, so there is no entry in
+                    // this list for the results of `pick_const_ptr_method`.
+                    // The reason is that the standard pointer cast method
+                    // (on a mutable pointer) always already shadows the
+                    // cast method (on a const pointer), and because the cast
+                    // method converts from one raw pointer to another it can
+                    // be followed using the Receiver chain. So, if we added
+                    // `pick_const_ptr_method` to this method, the anti-
+                    // shadowing algorithm would always pick *const::cast
+                    // rather than *mut::cast.
+                    // In practice therefore this does constrain us:
+                    // we cannot add new
+                    //   self: *mut Self
+                    // methods to types such as NonNull or anything else
+                    // which implements Receiver, because this might in future
+                    // shadow existing methods taking
+                    //   self: *const NonNull<Self>
+                    // in the pointee. In practice, methods taking raw pointers
+                    // are rare, and it seems that it should be easily possible
+                    // to avoid such compatibility breaks.
+                ];
+
+                let shadowed_pick = possible_shadowing_order
+                    .iter()
+                    .enumerate()
+                    .filter(|(n, _opt)| *n != possible_shadowing_order.len() - 1)
+                    .filter_map(|(n, opt)| {
+                        // Only worry about possible shadowers which are Ok picks
+                        opt.and_then(|res| res.as_ref().ok()).map(|shadower| (n, shadower))
+                    })
+                    .flat_map(|(n, shadower)| {
+                        possible_shadowing_order[n + 1..]
+                            .iter()
+                            // Only worry about potentially shadowed methods which
+                            // are Ok picks
+                            .filter_map(|opt| opt.and_then(|res| res.as_ref().ok()))
+                            .map(move |shadowed| (shadower, shadowed))
+                    })
+                    // Look for actual pairs of shadower/shadowed which are
+                    // the sort of shadowing case we want to avoid.
+                    .filter(|(shadower, shadowed)| {
+                        shadowed.depth > shadower.depth
+                            && shadowed.autoderefs == shadower.autoderefs
+                    })
+                    .map(|(_shadower, shadowed)| Ok(shadowed.clone()))
+                    .next();
+
+                // FIXME: show warning if shadowed_pick.is_some()
+
+                shadowed_pick.or(by_value_pick.or(autoref_pick).or(autoref_mut_pick).or_else(
+                    || {
+                        self.pick_const_ptr_method(
+                            step,
+                            self_ty,
+                            unstable_candidates.as_deref_mut(),
+                        )
+                    },
+                ))
             })
     }
 
@@ -1425,6 +1501,7 @@ impl<'tcx> Pick<'tcx> {
             autoref_or_ptr_adjustment: _,
             self_ty,
             unstable_candidates: _,
+            depth: _,
         } = *self;
         self_ty != other.self_ty || def_id != other.item.def_id
     }
@@ -1803,6 +1880,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             autoref_or_ptr_adjustment: None,
             self_ty,
             unstable_candidates: vec![],
+            depth: 0,
         })
     }
 
@@ -2109,6 +2187,7 @@ impl<'tcx> Candidate<'tcx> {
             autoref_or_ptr_adjustment: None,
             self_ty,
             unstable_candidates,
+            depth: self.depth,
         }
     }
 }

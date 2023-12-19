@@ -1185,30 +1185,24 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                     .unwrap_or_else(|_| {
                         span_bug!(self.span, "{:?} was applicable but now isn't?", step.self_ty)
                     });
-                self.pick_by_value_method(step, self_ty, unstable_candidates.as_deref_mut())
-                    .or_else(|| {
-                        self.pick_autorefd_method(
-                            step,
-                            self_ty,
-                            hir::Mutability::Not,
-                            unstable_candidates.as_deref_mut(),
-                        )
-                        .or_else(|| {
-                            self.pick_autorefd_method(
-                                step,
-                                self_ty,
-                                hir::Mutability::Mut,
-                                unstable_candidates.as_deref_mut(),
-                            )
-                        })
-                        .or_else(|| {
-                            self.pick_const_ptr_method(
-                                step,
-                                self_ty,
-                                unstable_candidates.as_deref_mut(),
-                            )
-                        })
-                    })
+
+                let by_value_pick =
+                    self.pick_by_value_method(step, self_ty, unstable_candidates.as_deref_mut());
+                let autoref_pick = self.pick_autorefd_method(
+                    step,
+                    self_ty,
+                    hir::Mutability::Not,
+                    unstable_candidates.as_deref_mut(),
+                );
+                let autoref_mut_pick = self.pick_autorefd_method(
+                    step,
+                    self_ty,
+                    hir::Mutability::Mut,
+                    unstable_candidates.as_deref_mut(),
+                );
+                let const_ptr_pick =
+                    self.pick_const_ptr_method(step, self_ty, unstable_candidates.as_deref_mut());
+                by_value_pick.or(autoref_pick).or(autoref_mut_pick).or(const_ptr_pick)
             })
     }
 

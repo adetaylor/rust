@@ -259,7 +259,6 @@ use core::marker::{PhantomData, Unsize};
 #[cfg(not(no_global_oom_handling))]
 use core::mem::size_of_val;
 use core::mem::{self, align_of_val_raw, forget, ManuallyDrop};
-#[cfg(bootstrap)]
 use core::ops::Receiver;
 use core::ops::{CoerceUnsized, Deref, DerefMut, DispatchFromDyn};
 use core::panic::{RefUnwindSafe, UnwindSafe};
@@ -345,6 +344,12 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized, A: Allocator> CoerceUnsized<Rc<U, A>> for
 
 #[unstable(feature = "dispatch_from_dyn", issue = "none")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized> DispatchFromDyn<Rc<U>> for Rc<T> {}
+
+#[cfg(not(bootstrap))]
+#[unstable(feature = "receiver_trait", issue = "none")]
+impl<T: ?Sized> Receiver for Weak<T> {
+    type Target = T;
+}
 
 impl<T: ?Sized> Rc<T> {
     #[inline]

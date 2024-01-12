@@ -1242,33 +1242,43 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                     // are rare, and it seems that it should be easily possible
                     // to avoid such compatibility breaks.
                 ];
-
-                let shadowed_pick = possible_shadowing_order
+                let possible_shadowers = possible_shadowing_order.split_last().unwrap().1;
+                let shadowing_found = possible_shadowers
                     .iter()
                     .enumerate()
-                    .filter(|(n, _opt)| *n != possible_shadowing_order.len() - 1)
-                    .filter_map(|(n, opt)| {
-                        // Only worry about possible shadowers which are Ok picks
-                        opt.and_then(|res| res.as_ref().ok()).map(|shadower| (n, shadower))
-                    })
                     .flat_map(|(n, shadower)| {
+                        // Find the items which might be shadowed by this shadower
+                        // to make all possible pairs of shadower-shadowed
                         possible_shadowing_order[n + 1..]
                             .iter()
-                            // Only worry about potentially shadowed methods which
-                            // are Ok picks
-                            .filter_map(|opt| opt.and_then(|res| res.as_ref().ok()))
+                            .rev()
                             .map(move |shadowed| (shadower, shadowed))
+                    })
+                    .filter_map(|(shadower, shadowed)| {
+                        // Only worry about possible shadowers which are Ok picks
+                        shadower
+                            .and_then(|res| res.as_ref().ok())
+                            .map(|shadower| (shadower, shadowed))
+                    })
+                    .filter_map(|(shadower, shadowed)| {
+                        // Only worry about possible shadowed functions which are Ok picks
+                        shadowed
+                            .and_then(|res: &Result<Pick<'_>, MethodError<'_>>| res.as_ref().ok())
+                            .map(|shadowed| (shadower, shadowed))
                     })
                     // Look for actual pairs of shadower/shadowed which are
                     // the sort of shadowing case we want to avoid.
-                    .filter(|(shadower, shadowed)| {
+                    .find(|(shadower, shadowed)| {
                         shadowed.depth > shadower.depth
                             && shadowed.autoderefs == shadower.autoderefs
-                    })
-                    .map(|(_shadower, shadowed)| Ok(shadowed.clone()))
-                    .next();
+                    });
 
-                // FIXME: show warning if shadowed_pick.is_some()
+                let shadowed_pick = if let Some((shadower, shadowed)) = shadowing_found {
+                    self.emit_shadowed_method_lint(shadower.item.def_id, shadowed.item.def_id);
+                    Some(Ok(shadowed.clone()))
+                } else {
+                    None
+                };
 
                 shadowed_pick.or(by_value_pick.or(autoref_pick).or(autoref_mut_pick).or_else(
                     || {
@@ -1280,6 +1290,55 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                     },
                 ))
             })
+    }
+
+    fn emit_shadowed_method_lint(&self, shadower: DefId, shadowed: DefId) {
+        let tcx = self.tcx;
+        tcx.struct_span_lint_hir(
+            lint::builtin::SHADOWED_METHOD_PICKED,
+            self.scope_expr_id,
+            self.span,
+            format!(
+                "{} and {} are ambiguous targets of this method call; explicitly choose one",
+                tcx.def_path_str(shadower),
+                tcx.def_path_str(shadowed),
+            ),
+            |lint| {
+                match tcx.span_of_impl(shadower) {
+                    Ok(span) => lint.span_label(span, "this method won't be called"),
+                    Err(crate_name) => {
+                        lint.note(format!("the method in crate {crate_name} won't be called"))
+                    }
+                };
+                match tcx.span_of_impl(shadowed) {
+                    Ok(span) => lint.span_label(span, "because we'll call this method"),
+                    Err(crate_name) => {
+                        lint.note(format!("because we'll call the method in crate {crate_name}"))
+                    }
+                };
+                // FIXME: on the below suggestions:
+                // 1. Fill in FOO to be the receiver. We might need to & it
+                //    depending on whether this is in an autoref context, etc.
+                //    We might also need to put it in brackets depending on its
+                //    complexity.
+                // 2. Fill in ARGUMENTS to be the existing method call arguments.
+                // 3. Adjust the span to include the method call target and
+                //    arguments from the original call expression.
+                // 4. Consider whether MachineApplicable is appropriate
+                lint.span_suggestion(
+                    self.span,
+                    "call as a function not a method",
+                    format!("{}(FOO, ARGUMENTS)", tcx.def_path_str(shadowed)),
+                    Applicability::MachineApplicable,
+                );
+                lint.span_suggestion(
+                    self.span,
+                    "call as a function not a method",
+                    format!("{}(FOO, ARGUMENTS)", tcx.def_path_str(shadower)),
+                    Applicability::MachineApplicable,
+                );
+            },
+        );
     }
 
     /// For each type `T` in the step list, this attempts to find a method where
@@ -1455,10 +1514,21 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                 .filter(|(candidate, _)| candidate.depth == greatest_depth)
                 .count();
             if number_of_candidates_with_greatest_depth == 1 {
-                // FIXME: emit warning here, unless this is something we should
-                // have done earlier e.g. in wfcheck.rs
-                info!("Multiple candidates detected, picking the innermost");
                 // Emit a warning, and retain a single candidate
+                let shadowed = applicable_candidates
+                    .iter()
+                    .filter(|(candidate, _)| candidate.depth == greatest_depth)
+                    .next()
+                    .unwrap()
+                    .0
+                    .item
+                    .def_id;
+                if let Some(shadower) = applicable_candidates
+                    .iter()
+                    .find(|(candidate, _)| candidate.depth != greatest_depth)
+                {
+                    self.emit_shadowed_method_lint(shadower.0.item.def_id, shadowed);
+                }
                 applicable_candidates.retain(|(candidate, _)| candidate.depth == greatest_depth);
             }
         }

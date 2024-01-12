@@ -1943,6 +1943,57 @@ declare_lint! {
 }
 
 declare_lint! {
+    /// The `shadowed_method_picked` lint reports when an outer type and an
+    /// inner type have two methods of the same name.
+    ///
+    /// ### Example
+    ///
+    /// ```rust
+    /// struct<T> OuterType<T>(T);
+    ///
+    /// impl<T> core::ops::Receiver for OuterType<T> {
+    ///     type Target = T;
+    /// }
+    ///
+    /// struct InnerType;
+    ///
+    /// impl InnerType {
+    ///     fn hello(&self) {}
+    /// }
+    ///
+    /// impl<T> OuterType<T> {
+    ///     fn hello(&self) {}
+    /// }
+    ///
+    /// fn main() {
+    ///     let t = OuterType(InnerType);
+    ///     t.hello();
+    /// }
+    /// ```
+    ///
+    /// {{produces}}
+    ///
+    /// ### Explanation
+    ///
+    /// Using the [`Receiver`] trait, types can declare that they may be used
+    /// as the type of `self` for some other type. Most commonly this is used
+    /// for smart pointers. But sometimes, the smart pointer and its contained
+    /// type can have methods of the same name, and a method call on the smart
+    /// pointer can be ambiguous.
+    ///
+    /// Rejecting all such ambiguities would be a compatibility break: perhaps
+    /// the method was on the inner type and was later added to the outer type.
+    /// To maintain compatibility with existing code, Rust will
+    /// counterintuitively choose the inner type, but it will show this warning.
+    /// The solution is to be explicit about which method you're calling,
+    /// e.g. in the above example explicitly call `InnerType::hello(t)` or
+    /// `OuterType::hello(t)`.
+    pub SHADOWED_METHOD_PICKED,
+    Warn,
+    "detects where a method in an outer type has shadowed a method an an inner type",
+}
+
+declare_lint! {
     /// The `irrefutable_let_patterns` lint detects [irrefutable patterns]
     /// in [`if let`]s, [`while let`]s, and `if let` guards.
     ///

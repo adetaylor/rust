@@ -16,9 +16,8 @@ impl Foo {
 fn main() {
   let mut foo = Foo(3);
   let mut ptr = std::ptr::NonNull::new(&mut foo as *mut Foo).unwrap();
-  // FIXME: Should call Foo::as_mut but warn about ambiguity
-  // once we have implemented warnings
   assert_eq!(ptr.as_mut(), 4);
+  //~^ ambiguous targets
   assert_eq!(ptr.foo(), 3);
   assert_eq!(ptr.bar(), 3);
   assert_eq!(ptr.baz(), 3);

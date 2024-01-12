@@ -1,0 +1,150 @@
+warning: Wrapper::<T>::f and A::f are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_unshadowing.rs:48:27
+   |
+LL |     pub fn f(self: Wrapper<Self>) -> i32 { 1 }
+   |     ------------------------------------ because we'll call this method
+...
+LL |     pub fn f(self) -> i32 { 5 }
+   |     --------------------- this method won't be called
+...
+LL |     assert_eq!(Wrapper(A).f(), 1);
+   |                           ^
+   |
+   = note: `#[warn(shadowed_method_picked)]` on by default
+help: call as a function not a method
+   |
+LL |     assert_eq!(Wrapper(A).A::f(FOO, ARGUMENTS)(), 1);
+   |                           ~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(Wrapper(A).Wrapper::<T>::f(FOO, ARGUMENTS)(), 1);
+   |                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: Wrapper::<T>::g and A::g are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_unshadowing.rs:50:27
+   |
+LL |     pub fn g(self: &Wrapper<Self>) -> i32 { 2 }
+   |     ------------------------------------- because we'll call this method
+...
+LL |     pub fn g(&self) -> i32 { 6 }
+   |     ---------------------- this method won't be called
+...
+LL |     assert_eq!(Wrapper(A).g(), 2);
+   |                           ^
+   |
+help: call as a function not a method
+   |
+LL |     assert_eq!(Wrapper(A).A::g(FOO, ARGUMENTS)(), 2);
+   |                           ~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(Wrapper(A).Wrapper::<T>::g(FOO, ARGUMENTS)(), 2);
+   |                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: Wrapper::<T>::h and A::h are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_unshadowing.rs:52:27
+   |
+LL |     pub fn h(self: &mut Wrapper<Self>) -> i32 { 3 }
+   |     ----------------------------------------- because we'll call this method
+...
+LL |     pub fn h(&mut self) -> i32 { 7 }
+   |     -------------------------- this method won't be called
+...
+LL |     assert_eq!(Wrapper(A).h(), 3);
+   |                           ^
+   |
+help: call as a function not a method
+   |
+LL |     assert_eq!(Wrapper(A).A::h(FOO, ARGUMENTS)(), 3);
+   |                           ~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(Wrapper(A).Wrapper::<T>::h(FOO, ARGUMENTS)(), 3);
+   |                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: Wrapper::<T>::i and A::i are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_unshadowing.rs:56:22
+   |
+LL |     pub fn i(self: *const Wrapper<Self>) -> i32 { 4 }
+   |     ------------------------------------------- because we'll call this method
+...
+LL |     pub fn i(self: *const Self) -> i32 { 8 }
+   |     ---------------------------------- this method won't be called
+...
+LL |     assert_eq!(a_ptr.i(), 4);
+   |                      ^
+   |
+help: call as a function not a method
+   |
+LL |     assert_eq!(a_ptr.A::i(FOO, ARGUMENTS)(), 4);
+   |                      ~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(a_ptr.Wrapper::<T>::i(FOO, ARGUMENTS)(), 4);
+   |                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: Wrapper::<T>::f and B::f are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_unshadowing.rs:58:27
+   |
+LL |     pub fn f(self: &Wrapper<Self>) -> i32 { 9 }
+   |     ------------------------------------- because we'll call this method
+...
+LL |     pub fn f(self) -> i32 { 5 }
+   |     --------------------- this method won't be called
+...
+LL |     assert_eq!(Wrapper(B).f(), 9);
+   |                           ^
+   |
+help: call as a function not a method
+   |
+LL |     assert_eq!(Wrapper(B).B::f(FOO, ARGUMENTS)(), 9);
+   |                           ~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(Wrapper(B).Wrapper::<T>::f(FOO, ARGUMENTS)(), 9);
+   |                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: Wrapper::<T>::f and C::f are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_unshadowing.rs:60:27
+   |
+LL |     pub fn f(self: &mut Wrapper<Self>) -> i32 { 10 }
+   |     ----------------------------------------- because we'll call this method
+...
+LL |     pub fn f(self) -> i32 { 5 }
+   |     --------------------- this method won't be called
+...
+LL |     assert_eq!(Wrapper(C).f(), 10);
+   |                           ^
+   |
+help: call as a function not a method
+   |
+LL |     assert_eq!(Wrapper(C).C::f(FOO, ARGUMENTS)(), 10);
+   |                           ~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(Wrapper(C).Wrapper::<T>::f(FOO, ARGUMENTS)(), 10);
+   |                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: Wrapper::<T>::g and C::g are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_unshadowing.rs:62:27
+   |
+LL |     pub fn g(self: &mut Wrapper<Self>) -> i32 { 11 }
+   |     ----------------------------------------- because we'll call this method
+...
+LL |     pub fn g(&self) -> i32 { 6 }
+   |     ---------------------- this method won't be called
+...
+LL |     assert_eq!(Wrapper(C).g(), 11);
+   |                           ^
+   |
+help: call as a function not a method
+   |
+LL |     assert_eq!(Wrapper(C).C::g(FOO, ARGUMENTS)(), 11);
+   |                           ~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(Wrapper(C).Wrapper::<T>::g(FOO, ARGUMENTS)(), 11);
+   |                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: 7 warnings emitted
+

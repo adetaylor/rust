@@ -3,7 +3,6 @@
 #![feature(receiver_trait)]
 
 // Tests that we pick the "inner" function
-// FIXME later, all these should emit warnings
 
 pub struct A;
 
@@ -47,12 +46,19 @@ impl<T> Wrapper<T> {
 
 fn main() {
     assert_eq!(Wrapper(A).f(), 1);
+    //~^ ambiguous targets
     assert_eq!(Wrapper(A).g(), 2);
+    //~^ ambiguous targets
     assert_eq!(Wrapper(A).h(), 3);
+    //~^ ambiguous targets
     let a = Wrapper(A);
     let a_ptr = &a as *const Wrapper<A>;
     assert_eq!(a_ptr.i(), 4);
+    //~^ ambiguous targets
     assert_eq!(Wrapper(B).f(), 9);
+    //~^ ambiguous targets
     assert_eq!(Wrapper(C).f(), 10);
+    //~^ ambiguous targets
     assert_eq!(Wrapper(C).g(), 11);
+    //~^ ambiguous targets
 }

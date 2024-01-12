@@ -1,0 +1,22 @@
+warning: NonNull::<T>::as_mut and Foo::as_mut are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_non_null_self.rs:19:18
+   |
+LL |   fn as_mut(self: &mut NonNull<Self>) -> i32 { 4 }
+   |   ------------------------------------------ because we'll call this method
+...
+LL |   assert_eq!(ptr.as_mut(), 4);
+   |                  ^^^^^^
+   |
+   = note: the method in crate core won't be called
+   = note: `#[warn(shadowed_method_picked)]` on by default
+help: call as a function not a method
+   |
+LL |   assert_eq!(ptr.Foo::as_mut(FOO, ARGUMENTS)(), 4);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |   assert_eq!(ptr.NonNull::<T>::as_mut(FOO, ARGUMENTS)(), 4);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: 1 warning emitted
+

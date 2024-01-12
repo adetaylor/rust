@@ -18,8 +18,8 @@ fn main() {
   let foo = Rc::new(Foo(3));
   let mut foo_weak = Rc::downgrade(&foo);
 
-  // FIXME - this should also show a warning once we've implemented warnings
   assert_eq!(foo_weak.as_ptr(), 6);
+  //~^ ambiguous targets
 
   assert_eq!(foo_weak.bar(), 4);
   assert_eq!(foo_weak.baz(), 5);

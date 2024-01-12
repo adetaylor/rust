@@ -1,0 +1,129 @@
+warning: Ptr::<T>::method_mutref and Foo::method_mutref are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_favor_pointee_method.rs:40:18
+   |
+LL |     fn method_mutref(self: &mut Ptr<Self>) -> u32 { 1 }
+   |     --------------------------------------------- because we'll call this method
+...
+LL |     fn method_mutref(&mut self) -> u32 { 2 }
+   |     ---------------------------------- this method won't be called
+...
+LL |     assert_eq!(a.method_mutref(), 1);
+   |                  ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(shadowed_method_picked)]` on by default
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Foo::method_mutref(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Ptr::<T>::method_mutref(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: Ptr::<T>::method_ref and Foo::method_ref are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_favor_pointee_method.rs:48:18
+   |
+LL |     fn method_ref(self: &Ptr<Self>) -> u32 { 1 }
+   |     -------------------------------------- because we'll call this method
+...
+LL |     fn method_ref(&self) -> u32 { 2 }
+   |     --------------------------- this method won't be called
+...
+LL |     assert_eq!(a.method_ref(), 1);
+   |                  ^^^^^^^^^^
+   |
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Foo::method_ref(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Ptr::<T>::method_ref(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: Ptr::<T>::method_ref3 and Foo::method_ref3 are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_favor_pointee_method.rs:53:18
+   |
+LL |     fn method_ref3(self: &mut Ptr<Self>) -> u32 { 1 }
+   |     ------------------------------------------- because we'll call this method
+...
+LL |     fn method_ref3(&self) -> u32 { 2 }
+   |     ---------------------------- this method won't be called
+...
+LL |     assert_eq!(a.method_ref3(), 1);
+   |                  ^^^^^^^^^^^
+   |
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Foo::method_ref3(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Ptr::<T>::method_ref3(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: Ptr::<T>::method_value and Foo::method_value are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_favor_pointee_method.rs:57:18
+   |
+LL |     fn method_value(self: Ptr<Self>) -> u32 { 1 }
+   |     --------------------------------------- because we'll call this method
+...
+LL |     fn method_value(self) -> u32 { 2 }
+   |     ---------------------------- this method won't be called
+...
+LL |     assert_eq!(a.method_value(), 1);
+   |                  ^^^^^^^^^^^^
+   |
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Foo::method_value(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Ptr::<T>::method_value(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: Ptr::<T>::method_value2 and Foo::method_value2 are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_favor_pointee_method.rs:60:18
+   |
+LL |     fn method_value2(self: &Ptr<Self>) -> u32 { 1 }
+   |     ----------------------------------------- because we'll call this method
+...
+LL |     fn method_value2(self) -> u32 { 2 }
+   |     ----------------------------- this method won't be called
+...
+LL |     assert_eq!(a.method_value2(), 1);
+   |                  ^^^^^^^^^^^^^
+   |
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Foo::method_value2(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Ptr::<T>::method_value2(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: Ptr::<T>::method_value3 and Foo::method_value3 are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_favor_pointee_method.rs:63:18
+   |
+LL |     fn method_value3(self: &mut Ptr<Self>) -> u32 { 1 }
+   |     --------------------------------------------- because we'll call this method
+...
+LL |     fn method_value3(self) -> u32 { 2 }
+   |     ----------------------------- this method won't be called
+...
+LL |     assert_eq!(a.method_value3(), 1);
+   |                  ^^^^^^^^^^^^^
+   |
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Foo::method_value3(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Ptr::<T>::method_value3(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: 6 warnings emitted
+

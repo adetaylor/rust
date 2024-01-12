@@ -1,0 +1,22 @@
+warning: std::rc::Weak::<T, A>::as_ptr and Foo::as_ptr are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_weak_self.rs:21:23
+   |
+LL |   fn as_ptr(self: &Weak<Self>) -> i32 { 6 }
+   |   ----------------------------------- because we'll call this method
+...
+LL |   assert_eq!(foo_weak.as_ptr(), 6);
+   |                       ^^^^^^
+   |
+   = note: the method in crate alloc won't be called
+   = note: `#[warn(shadowed_method_picked)]` on by default
+help: call as a function not a method
+   |
+LL |   assert_eq!(foo_weak.Foo::as_ptr(FOO, ARGUMENTS)(), 6);
+   |                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |   assert_eq!(foo_weak.std::rc::Weak::<T, A>::as_ptr(FOO, ARGUMENTS)(), 6);
+   |                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: 1 warning emitted
+

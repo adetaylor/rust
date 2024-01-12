@@ -1548,9 +1548,8 @@ fn check_fn_or_method<'tcx>(
 }
 
 const HELP_FOR_SELF_TYPE: &str = "consider changing to `self`, `&self`, `&mut self`, or a type \
-     implementing `Receiver`: for example `self: Box<Self>`, \
-     `self: Rc<Self>`, `self: Arc<Self>`, or `self: Pin<P>` (where P is one \
-     of the previous types except `Self`)";
+     implementing `Receiver` such as `self: Box<Self>`, \
+     `self: Rc<Self>`, or `self: Arc<Self>`";
 
 const _HELP_FOR_SIZED_SELF_TYPE: &str = ". The self-type implements Receiver, but only for Sized targets. \
     The receiver type may not always be Sized in this case. Consider adjusting the Receiver to specify \

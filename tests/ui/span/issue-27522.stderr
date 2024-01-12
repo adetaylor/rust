@@ -5,7 +5,7 @@ LL |     fn handler(self: &SomeType);
    |                      ^^^^^^^^^
    |
    = note: type of `self` must be `Self` or some type implementing Receiver
-   = help: consider changing to `self`, `&self`, `&mut self`, or a type implementing `Receiver`: for example `self: Box<Self>`, `self: Rc<Self>`, `self: Arc<Self>`, or `self: Pin<P>` (where P is one of the previous types except `Self`)
+   = help: consider changing to `self`, `&self`, `&mut self`, or a type implementing `Receiver` such as `self: Box<Self>`, `self: Rc<Self>`, or `self: Arc<Self>`
 
 error: aborting due to 1 previous error
 

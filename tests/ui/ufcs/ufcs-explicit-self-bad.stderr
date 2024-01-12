@@ -5,7 +5,7 @@ LL |     fn foo(self: isize, x: isize) -> isize {
    |                  ^^^^^
    |
    = note: type of `self` must be `Self` or some type implementing Receiver
-   = help: consider changing to `self`, `&self`, `&mut self`, or a type implementing `Receiver`: for example `self: Box<Self>`, `self: Rc<Self>`, `self: Arc<Self>`, or `self: Pin<P>` (where P is one of the previous types except `Self`)
+   = help: consider changing to `self`, `&self`, `&mut self`, or a type implementing `Receiver` such as `self: Box<Self>`, `self: Rc<Self>`, or `self: Arc<Self>`
 
 error[E0307]: invalid `self` parameter type: Bar<isize>
   --> $DIR/ufcs-explicit-self-bad.rs:19:18
@@ -14,7 +14,7 @@ LL |     fn foo(self: Bar<isize>, x: isize) -> isize {
    |                  ^^^^^^^^^^
    |
    = note: type of `self` must be `Self` or some type implementing Receiver
-   = help: consider changing to `self`, `&self`, `&mut self`, or a type implementing `Receiver`: for example `self: Box<Self>`, `self: Rc<Self>`, `self: Arc<Self>`, or `self: Pin<P>` (where P is one of the previous types except `Self`)
+   = help: consider changing to `self`, `&self`, `&mut self`, or a type implementing `Receiver` such as `self: Box<Self>`, `self: Rc<Self>`, or `self: Arc<Self>`
 
 error[E0307]: invalid `self` parameter type: &Bar<usize>
   --> $DIR/ufcs-explicit-self-bad.rs:23:18
@@ -23,7 +23,7 @@ LL |     fn bar(self: &Bar<usize>, x: isize) -> isize {
    |                  ^^^^^^^^^^^
    |
    = note: type of `self` must be `Self` or some type implementing Receiver
-   = help: consider changing to `self`, `&self`, `&mut self`, or a type implementing `Receiver`: for example `self: Box<Self>`, `self: Rc<Self>`, `self: Arc<Self>`, or `self: Pin<P>` (where P is one of the previous types except `Self`)
+   = help: consider changing to `self`, `&self`, `&mut self`, or a type implementing `Receiver` such as `self: Box<Self>`, `self: Rc<Self>`, or `self: Arc<Self>`
 
 error[E0308]: mismatched `self` parameter type
   --> $DIR/ufcs-explicit-self-bad.rs:37:21

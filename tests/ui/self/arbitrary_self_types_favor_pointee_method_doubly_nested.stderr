@@ -1,0 +1,45 @@
+warning: InnerPtr::<T>::m and Foo::m are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_favor_pointee_method_doubly_nested.rs:32:18
+   |
+LL |     fn m(self: &OuterPtr<InnerPtr<Self>>) -> u32 { 1 }
+   |     -------------------------------------------- because we'll call this method
+...
+LL |     fn m(self: &OuterPtr<Self>) -> u32 { 2 }
+   |     ---------------------------------- this method won't be called
+...
+LL |     assert_eq!(a.m(), 1);
+   |                  ^
+   |
+   = note: `#[warn(shadowed_method_picked)]` on by default
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Foo::m(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.InnerPtr::<T>::m(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: OuterPtr::<T>::m and Foo::m are ambiguous targets of this method call; explicitly choose one
+  --> $DIR/arbitrary_self_types_favor_pointee_method_doubly_nested.rs:32:18
+   |
+LL |     fn m(self: &OuterPtr<InnerPtr<Self>>) -> u32 { 1 }
+   |     -------------------------------------------- because we'll call this method
+...
+LL |     fn m(self) -> u32 { 3 }
+   |     ----------------- this method won't be called
+...
+LL |     assert_eq!(a.m(), 1);
+   |                  ^
+   |
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.Foo::m(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~
+help: call as a function not a method
+   |
+LL |     assert_eq!(a.OuterPtr::<T>::m(FOO, ARGUMENTS)(), 1);
+   |                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+warning: 2 warnings emitted
+

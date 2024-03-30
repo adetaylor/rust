@@ -1630,6 +1630,13 @@ fn check_fn_or_method<'tcx>(
     }
 }
 
+#[derive(Clone, Copy)]
+enum ArbitrarySelfTypesLevel {
+    None,                       // neither arbitrary_self_types nor arbitrary_self_types_pointers
+    ArbitrarySelfTypes,         // just arbitrary_self_types
+    ArbitrarySelfTypesPointers, // both arbitrary_self_types and arbitrary_self_types_pointers
+}
+
 #[instrument(level = "debug", skip(wfcx))]
 fn check_method_receiver<'tcx>(
     wfcx: &WfCheckingCtxt<'_, 'tcx>,
@@ -1662,38 +1669,101 @@ fn check_method_receiver<'tcx>(
         return Ok(());
     }
 
-    if tcx.features().arbitrary_self_types {
-        if !receiver_is_valid(wfcx, span, receiver_ty, self_ty, true) {
-            // Report error; `arbitrary_self_types` was enabled.
-            return Err(tcx.dcx().emit_err(errors::InvalidReceiverTy { span, receiver_ty }));
-        }
+    let arbitrary_self_types_level = if tcx.features().arbitrary_self_types_pointers {
+        // FIXME consider reporting error if tcx.features().arbitrary_self_types is not also enabled
+        ArbitrarySelfTypesLevel::ArbitrarySelfTypesPointers
+    } else if tcx.features().arbitrary_self_types {
+        ArbitrarySelfTypesLevel::ArbitrarySelfTypes
     } else {
-        if !receiver_is_valid(wfcx, span, receiver_ty, self_ty, false) {
-            return Err(if receiver_is_valid(wfcx, span, receiver_ty, self_ty, true) {
-                // Report error; would have worked with `arbitrary_self_types`.
-                feature_err(
-                    &tcx.sess,
-                    sym::arbitrary_self_types,
-                    span,
-                    format!(
-                        "`{receiver_ty}` cannot be used as the type of `self` without \
-                         the `arbitrary_self_types` feature",
-                    ),
+        ArbitrarySelfTypesLevel::None
+    };
+
+    if !receiver_is_valid(wfcx, span, receiver_ty, self_ty, arbitrary_self_types_level) {
+        return match arbitrary_self_types_level {
+            ArbitrarySelfTypesLevel::ArbitrarySelfTypesPointers => {
+                Err(tcx.dcx().emit_err(errors::InvalidReceiverTy { span, receiver_ty }))
+            }
+            ArbitrarySelfTypesLevel::ArbitrarySelfTypes => {
+                Err(
+                    if receiver_is_valid(
+                        wfcx,
+                        span,
+                        receiver_ty,
+                        self_ty,
+                        ArbitrarySelfTypesLevel::ArbitrarySelfTypesPointers,
+                    ) {
+                        // Report error; would have worked with `arbitrary_self_types_pointers`.
+                        feature_err(
+                            &tcx.sess,
+                            sym::arbitrary_self_types_pointers,
+                            span,
+                            format!(
+                                "`{receiver_ty}` cannot be used as the type of `self` without \
+                            the `arbitrary_self_types_pointers` feature",
+                            ),
+                        )
+                        .with_help(fluent::hir_analysis_invalid_receiver_ty_help)
+                        .emit()
+                    } else {
+                        // Report error; would not have worked with `arbitrary_self_types_pointers`.
+                        tcx.dcx().emit_err(errors::InvalidReceiverTy { span, receiver_ty })
+                    },
                 )
-                .with_help(fluent::hir_analysis_invalid_receiver_ty_help)
-                .emit()
-            } else {
-                // Report error; would not have worked with `arbitrary_self_types`.
-                tcx.dcx().emit_err(errors::InvalidReceiverTy { span, receiver_ty })
-            });
-        }
+            }
+            ArbitrarySelfTypesLevel::None => {
+                Err(
+                    if receiver_is_valid(
+                        wfcx,
+                        span,
+                        receiver_ty,
+                        self_ty,
+                        ArbitrarySelfTypesLevel::ArbitrarySelfTypes,
+                    ) {
+                        // Report error; would have worked with `arbitrary_self_types`.
+                        feature_err(
+                            &tcx.sess,
+                            sym::arbitrary_self_types,
+                            span,
+                            format!(
+                                "`{receiver_ty}` cannot be used as the type of `self` without \
+                            the `arbitrary_self_types` feature",
+                            ),
+                        )
+                        .with_help(fluent::hir_analysis_invalid_receiver_ty_help)
+                        .emit()
+                    } else if receiver_is_valid(
+                        wfcx,
+                        span,
+                        receiver_ty,
+                        self_ty,
+                        ArbitrarySelfTypesLevel::ArbitrarySelfTypesPointers,
+                    ) {
+                        // Report error; would have worked with `arbitrary_self_types_pointers`.
+                        feature_err(
+                            &tcx.sess,
+                            sym::arbitrary_self_types_pointers,
+                            span,
+                            format!(
+                                "`{receiver_ty}` cannot be used as the type of `self` without \
+                            the `arbitrary_self_types_pointers` feature",
+                            ),
+                        )
+                        .with_help(fluent::hir_analysis_invalid_receiver_ty_help)
+                        .emit()
+                    } else {
+                        // Report error; would not have worked with `arbitrary_self_types[_pointers]`.
+                        tcx.dcx().emit_err(errors::InvalidReceiverTy { span, receiver_ty })
+                    },
+                )
+            }
+        };
     }
     Ok(())
 }
 
 /// Returns whether `receiver_ty` would be considered a valid receiver type for `self_ty`. If
-/// `arbitrary_self_types` is enabled, `receiver_ty` must transitively deref to `self_ty`, possibly
-/// through a `*const/mut T` raw pointer. If the feature is not enabled, the requirements are more
+/// `arbitrary_self_types` is enabled, `receiver_ty` must transitively relae to `self_ty`, via
+/// a chain of Receiver<Target=T>. If the feature is not enabled, the requirements are more
 /// strict: `receiver_ty` must implement `Receiver` and directly implement
 /// `Deref<Target = self_ty>`.
 ///
@@ -1705,7 +1775,7 @@ fn receiver_is_valid<'tcx>(
     span: Span,
     receiver_ty: Ty<'tcx>,
     self_ty: Ty<'tcx>,
-    arbitrary_self_types_enabled: bool,
+    arbitrary_self_types_enabled: ArbitrarySelfTypesLevel,
 ) -> bool {
     let infcx = wfcx.infcx;
     let tcx = wfcx.tcx();
@@ -1723,8 +1793,11 @@ fn receiver_is_valid<'tcx>(
 
     let mut autoderef = Autoderef::new(infcx, wfcx.param_env, wfcx.body_def_id, span, receiver_ty);
 
-    // The `arbitrary_self_types` feature allows raw pointer receivers like `self: *const Self`.
-    if arbitrary_self_types_enabled {
+    // The `arbitrary_self_types_pointers` feature allows raw pointer receivers like `self: *const Self`.
+    // If this were ever to be stabilized, a better way would just be to implement Receiver
+    // for *const T and *mut T in the standard library, but we can't do that because
+    // standard library code can't depend upon feature gates.
+    if matches!(arbitrary_self_types_enabled, ArbitrarySelfTypesLevel::ArbitrarySelfTypesPointers) {
         autoderef = autoderef.include_raw_pointers();
     }
 
@@ -1750,7 +1823,7 @@ fn receiver_is_valid<'tcx>(
 
         // Without `feature(arbitrary_self_types)`, we require that each step in the
         // deref chain implement `receiver`.
-        if !arbitrary_self_types_enabled {
+        if matches!(arbitrary_self_types_enabled, ArbitrarySelfTypesLevel::None) {
             if !receiver_is_implemented(
                 wfcx,
                 receiver_trait_def_id,

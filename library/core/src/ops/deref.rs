@@ -297,15 +297,24 @@ unsafe impl<T: ?Sized> DerefPure for &mut T {}
 /// Indicates that a struct can be used as a method receiver, without the
 /// `arbitrary_self_types` feature. This is implemented by stdlib pointer types like `Box<T>`,
 /// `Rc<T>`, `&T`, and `Pin<P>`.
+#[cfg(bootstrap)]
 #[lang = "receiver"]
 #[unstable(feature = "receiver_trait", issue = "none")]
 #[doc(hidden)]
-pub trait Receiver {
+pub trait HardCodedReceiver {
+    // Empty.
+}
+
+#[cfg(not(bootstrap))]
+#[lang = "hard_coded_receiver"]
+#[unstable(feature = "receiver_trait", issue = "none")]
+#[doc(hidden)]
+pub trait HardCodedReceiver {
     // Empty.
 }
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<T: ?Sized> Receiver for &T {}
+impl<T: ?Sized> HardCodedReceiver for &T {}
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<T: ?Sized> Receiver for &mut T {}
+impl<T: ?Sized> HardCodedReceiver for &mut T {}

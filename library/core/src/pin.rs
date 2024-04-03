@@ -921,7 +921,7 @@
 #![stable(feature = "pin", since = "1.33.0")]
 
 use crate::hash::{Hash, Hasher};
-use crate::ops::{CoerceUnsized, Deref, DerefMut, DerefPure, DispatchFromDyn, Receiver};
+use crate::ops::{CoerceUnsized, Deref, DerefMut, DerefPure, DispatchFromDyn, HardCodedReceiver};
 #[allow(unused_imports)]
 use crate::{
     cell::{RefCell, UnsafeCell},
@@ -1686,7 +1686,7 @@ impl<Ptr: DerefMut<Target: Unpin>> DerefMut for Pin<Ptr> {
 unsafe impl<Ptr: DerefPure> DerefPure for Pin<Ptr> {}
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<Ptr: Receiver> Receiver for Pin<Ptr> {}
+impl<Ptr: HardCodedReceiver> HardCodedReceiver for Pin<Ptr> {}
 
 #[stable(feature = "pin", since = "1.33.0")]
 impl<Ptr: fmt::Debug> fmt::Debug for Pin<Ptr> {

@@ -79,10 +79,10 @@ mod prelude {
     #[lang = "sized"]
     pub trait Sized {}
 
-    #[lang = "receiver"]
-    pub trait Receiver {}
-    impl<T: ?Sized> Receiver for &T {}
-    impl<T: ?Sized> Receiver for &mut T {}
+    #[lang = "hard_coded_receiver"]
+    pub trait HardCodedReceiver {}
+    impl<T: ?Sized> HardCodedReceiver for &T {}
+    impl<T: ?Sized> HardCodedReceiver for &mut T {}
 
     #[lang = "copy"]
     pub trait Copy: Sized {}

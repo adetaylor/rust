@@ -201,7 +201,8 @@ use core::marker::Unsize;
 use core::mem::{self, SizedTypeProperties};
 use core::ops::{AsyncFn, AsyncFnMut, AsyncFnOnce};
 use core::ops::{
-    CoerceUnsized, Coroutine, CoroutineState, Deref, DerefMut, DerefPure, DispatchFromDyn, Receiver,
+    CoerceUnsized, Coroutine, CoroutineState, Deref, DerefMut, DerefPure, DispatchFromDyn,
+    HardCodedReceiver,
 };
 use core::pin::Pin;
 use core::ptr::{self, addr_of_mut, NonNull, Unique};
@@ -1989,7 +1990,7 @@ impl<T: ?Sized, A: Allocator> DerefMut for Box<T, A> {
 unsafe impl<T: ?Sized, A: Allocator> DerefPure for Box<T, A> {}
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<T: ?Sized, A: Allocator> Receiver for Box<T, A> {}
+impl<T: ?Sized, A: Allocator> HardCodedReceiver for Box<T, A> {}
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<I: Iterator + ?Sized, A: Allocator> Iterator for Box<I, A> {

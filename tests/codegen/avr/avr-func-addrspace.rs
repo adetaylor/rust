@@ -17,7 +17,7 @@
 pub trait Sized {}
 #[lang = "copy"]
 pub trait Copy {}
-#[lang = "receiver"]
+#[lang = "hard_coded_receiver"]
 pub trait Receiver {}
 #[lang = "tuple_trait"]
 pub trait Tuple {}

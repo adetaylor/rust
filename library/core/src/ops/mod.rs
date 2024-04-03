@@ -169,7 +169,7 @@ pub use self::deref::{Deref, DerefMut};
 pub use self::deref::DerefPure;
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-pub use self::deref::Receiver;
+pub use self::deref::HardCodedReceiver;
 
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use self::drop::Drop;

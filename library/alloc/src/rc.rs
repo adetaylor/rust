@@ -260,7 +260,7 @@ use core::intrinsics::abort;
 use core::iter;
 use core::marker::{PhantomData, Unsize};
 use core::mem::{self, align_of_val_raw, forget, ManuallyDrop};
-use core::ops::{CoerceUnsized, Deref, DerefMut, DerefPure, DispatchFromDyn, Receiver};
+use core::ops::{CoerceUnsized, Deref, DerefMut, DerefPure, DispatchFromDyn, HardCodedReceiver};
 use core::panic::{RefUnwindSafe, UnwindSafe};
 #[cfg(not(no_global_oom_handling))]
 use core::pin::Pin;
@@ -2178,7 +2178,7 @@ impl<T: ?Sized, A: Allocator> Deref for Rc<T, A> {
 unsafe impl<T: ?Sized, A: Allocator> DerefPure for Rc<T, A> {}
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<T: ?Sized> Receiver for Rc<T> {}
+impl<T: ?Sized> HardCodedReceiver for Rc<T> {}
 
 #[stable(feature = "rust1", since = "1.0.0")]
 unsafe impl<#[may_dangle] T: ?Sized, A: Allocator> Drop for Rc<T, A> {

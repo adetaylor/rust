@@ -15,7 +15,7 @@
 trait Sized {}
 #[lang = "copy"]
 trait Copy {}
-#[lang = "receiver"]
+#[lang = "hard_coded_receiver"]
 trait Receiver {}
 #[lang = "dispatch_from_dyn"]
 trait DispatchFromDyn<T> {}

@@ -21,7 +21,7 @@ use core::intrinsics::abort;
 use core::iter;
 use core::marker::{PhantomData, Unsize};
 use core::mem::{self, align_of_val_raw};
-use core::ops::{CoerceUnsized, Deref, DerefPure, DispatchFromDyn, Receiver};
+use core::ops::{CoerceUnsized, Deref, DerefPure, DispatchFromDyn, HardCodedReceiver};
 use core::panic::{RefUnwindSafe, UnwindSafe};
 use core::pin::Pin;
 use core::ptr::{self, NonNull};
@@ -2144,7 +2144,7 @@ impl<T: ?Sized, A: Allocator> Deref for Arc<T, A> {
 unsafe impl<T: ?Sized, A: Allocator> DerefPure for Arc<T, A> {}
 
 #[unstable(feature = "receiver_trait", issue = "none")]
-impl<T: ?Sized> Receiver for Arc<T> {}
+impl<T: ?Sized> HardCodedReceiver for Arc<T> {}
 
 #[cfg(not(no_global_oom_handling))]
 impl<T: ?Sized + CloneToUninit, A: Allocator + Clone> Arc<T, A> {

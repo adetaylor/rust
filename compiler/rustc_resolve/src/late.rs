@@ -2194,18 +2194,46 @@ impl<'a: 'ast, 'b, 'ast, 'tcx> LateResolutionVisitor<'a, 'b, 'ast, 'tcx> {
                     trace!("SelfVisitor found Self");
                     self.self_found = true;
                 }
-                if let TyKind::Ref(lt, _) = ty.kind {
-                    let lt_id = if let Some(lt) = lt {
-                        lt.id
-                    } else {
-                        let res = self.r.lifetimes_res_map[&ty.id];
-                        let LifetimeRes::ElidedAnchor { start, .. } = res else { bug!() };
-                        start
-                    };
-                    let lt_res = self.r.lifetimes_res_map[&lt_id];
-                    trace!("SelfVisitor inserting res={:?}", lt_res);
-                    self.lifetime.insert(lt_res);
-                }
+                // Look for lifetimes belonging to any reference
+                match &ty.kind {
+                    TyKind::Ref(lt, _) => {
+                        let lt_id = if let Some(lt) = lt {
+                            lt.id
+                        } else {
+                            let res = self.r.lifetimes_res_map[&ty.id];
+                            let LifetimeRes::ElidedAnchor { start, .. } = res else { bug!() };
+                            start
+                        };
+                        let lt_res = self.r.lifetimes_res_map[&lt_id];
+                        trace!("SelfVisitor inserting reference lifetime res={:?}", lt_res);
+                        self.lifetime.insert(lt_res);
+                    }
+                    TyKind::Path(_, Path { segments, .. }) => {
+                        for path_segment in segments {
+                            if let Some(ref args) = path_segment.args {
+                                match &**args {
+                                    GenericArgs::AngleBracketed(ab_args) => {
+                                        for arg in &ab_args.args {
+                                            if let AngleBracketedArg::Arg(GenericArg::Lifetime(
+                                                lt,
+                                            )) = arg
+                                            {
+                                                let lt_res = self.r.lifetimes_res_map[&lt.id];
+                                                trace!(
+                                                    "SelfVisitor inserting other lifetime res={:?}",
+                                                    lt_res
+                                                );
+                                                self.lifetime.insert(lt_res);
+                                            }
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                };
                 visit::walk_ty(self, ty)
             }
 

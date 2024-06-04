@@ -2170,8 +2170,7 @@ impl<'a: 'ast, 'b, 'ast, 'tcx> LateResolutionVisitor<'a, 'b, 'ast, 'tcx> {
         }
 
         impl SelfVisitor<'_, '_, '_> {
-            // Look for `self: &'a Self` - also desugared from `&'a self`,
-            // and if that matches, use it for elision and return early.
+            // Look for `self: Self` - also desugared from `self`
             fn is_self_ty(&self, ty: &Ty) -> bool {
                 match ty.kind {
                     TyKind::ImplicitSelf => true,
@@ -2190,10 +2189,7 @@ impl<'a: 'ast, 'b, 'ast, 'tcx> LateResolutionVisitor<'a, 'b, 'ast, 'tcx> {
         impl<'a> Visitor<'a> for SelfVisitor<'_, '_, '_> {
             fn visit_ty(&mut self, ty: &'a Ty) {
                 trace!("SelfVisitor considering ty={:?}", ty);
-                if self.is_self_ty(ty) {
-                    trace!("SelfVisitor found Self");
-                    self.self_found = true;
-                }
+                // Look for lifetimes belonging to any reference
                 if let TyKind::Ref(lt, _) = ty.kind {
                     let lt_id = if let Some(lt) = lt {
                         lt.id
@@ -2206,7 +2202,12 @@ impl<'a: 'ast, 'b, 'ast, 'tcx> LateResolutionVisitor<'a, 'b, 'ast, 'tcx> {
                     trace!("SelfVisitor inserting res={:?}", lt_res);
                     self.lifetime.insert(lt_res);
                 }
-                visit::walk_ty(self, ty)
+                if self.is_self_ty(ty) {
+                    trace!("SelfVisitor found Self");
+                    self.self_found = true;
+                } else {
+                    visit::walk_ty(self, ty)
+                }
             }
 
             // A type may have an expression as a const generic argument.

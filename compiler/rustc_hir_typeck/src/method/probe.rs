@@ -1272,16 +1272,31 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             // first place (could happen with things like blanket impls for T)
             def_id: possible_shadower.item.def_id,
         };
-        let _potentially_shadowed_pick = self.pick_autorefd_method(
+        let potentially_shadowed_pick = self.pick_autorefd_method(
             step,
             self_ty,
             mutbl,
             unstable_candidates_for_shadow_probe,
             Some(&pick_constraints),
         );
-
-        // At the moment, this function does no checks. A future
-        // commit will fill out the body here.
+        // Look for actual pairs of shadower/shadowed which are
+        // the sort of shadowing case we want to avoid. Specifically...
+        if let Some(Ok(possible_shadowed)) = potentially_shadowed_pick.as_ref() {
+            // This check should be redundant as we should have applied
+            // the same constraints during probing, but let's be sure.
+            if pick_constraints.may_shadow_based_on_autoderefs(possible_shadowed.autoderefs)
+                && pick_constraints.may_shadow_based_on_receiver_trait_derefs(
+                    possible_shadowed.receiver_trait_derefs,
+                )
+                && pick_constraints.may_shadow_based_on_defid(possible_shadowed.item.def_id)
+            {
+                let sources = [possible_shadower, possible_shadowed]
+                    .into_iter()
+                    .map(|p| self.candidate_source_from_pick(p))
+                    .collect();
+                return Err(MethodError::Ambiguity(sources));
+            }
+        }
         Ok(())
     }
 
@@ -1614,6 +1629,15 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                     _ => CandidateSource::Trait(candidate.item.container_id(self.tcx)),
                 }
             }),
+        }
+    }
+
+    fn candidate_source_from_pick(&self, pick: &Pick<'tcx>) -> CandidateSource {
+        match pick.kind {
+            InherentImplPick => CandidateSource::Impl(pick.item.container_id(self.tcx)),
+            ObjectPick | WhereClausePick(_) | TraitPick => {
+                CandidateSource::Trait(pick.item.container_id(self.tcx))
+            }
         }
     }
 

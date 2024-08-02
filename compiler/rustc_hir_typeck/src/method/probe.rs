@@ -1331,7 +1331,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             if tracking_unstable_candidates { Some(&mut empty_vec) } else { None };
         // Set criteria for how we find methods possibly shadowed by 'possible_shadower'
         let pick_constraints = PickConstraintsForShadowed {
-            // It's the same `self` type, other than any autoreffing...
+            // It's the same `self` type...
             autoderefs: possible_shadower.autoderefs,
             // ... but the method was found in an impl block determined
             // by searching further along the Receiver chain than the other,
@@ -1341,6 +1341,52 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             // first place (could happen with things like blanket impls for T)
             def_id: possible_shadower.item.def_id,
         };
+        // A note on the autoderefs above. Within pick_by_value_method, an extra
+        // autoderef may be applied in order to reborrow a reference with
+        // a different lifetime. That seems as though it would break the
+        // logic of these constraints, since the number of autoderefs could
+        // no longer be used to identify the fundamental type of the receiver.
+        // However, this extra autoderef is applied only to by-value calls
+        // where the receiver is already a reference. So this situation would
+        // only occur in cases where the shadowing looks like this:
+        // ```
+        // struct A;
+        // impl A {
+        //   fn foo(self: &&NonNull<A>) {}
+        //      // note this is by DOUBLE reference
+        // }
+        // ```
+        // then we've come along and added this method to `NonNull`:
+        // ```
+        //   fn foo(&self)  // note this is by single reference
+        // ```
+        // and the call is:
+        // ```
+        // let bar = NonNull<Foo>;
+        // let bar = &foo;
+        // bar.foo();
+        // ```
+        // In these circumstances, the logic is wrong, and we wouldn't spot
+        // the shadowing, because the autoderef-based maths wouldn't line up.
+        // Conversely, we would incorrectly warn about shadowing in these
+        // circumstances:
+        // ```
+        // struct A;
+        // impl A {
+        //   fn foo(self: &NonNull<A>) {}
+        // }
+        // ```
+        // then we've come along and added this method to `NonNull`:
+        // ```
+        //   fn foo(&self)
+        // ```
+        // and the call is:
+        // ```
+        // let bar = NonNull<Foo>;
+        // let bar = &foo;
+        // bar.foo();
+        // ```
+        // FIXME: add tests for these combinations and see if anything is wrong.
         let potentially_shadowed_pick = self.pick_autorefd_method(
             step,
             self_ty,

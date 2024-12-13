@@ -1,3 +1,11 @@
+error[E0277]: the trait bound `NonNull<A>: std::ops::Receiver` is not satisfied
+  --> $DIR/arbitrary_self_types_nonnull.rs:6:16
+   |
+LL |     fn m(self: std::ptr::NonNull<Self>) {}
+   |                ^^^^^^^^^^^^^^^^^^^^^^^ the trait `Deref` is not implemented for `NonNull<A>`
+   |
+   = note: required for `NonNull<A>` to implement `std::ops::Receiver`
+
 error[E0307]: invalid `self` parameter type: `NonNull<A>`
   --> $DIR/arbitrary_self_types_nonnull.rs:6:16
    |
@@ -7,6 +15,14 @@ LL |     fn m(self: std::ptr::NonNull<Self>) {}
    = note: type of `self` must be `Self` or some type implementing `Receiver`
    = help: consider changing to `self`, `&self`, `&mut self`, or a type implementing `Receiver` such as `self: Box<Self>`, `self: Rc<Self>`, or `self: Arc<Self>`
    = note: `NonNull` does not implement `Receiver` because it has methods that may shadow the referent; consider wrapping your `NonNull` in a newtype wrapper for which you implement `Receiver`
+
+error[E0277]: the trait bound `NonNull<A>: std::ops::Receiver` is not satisfied
+  --> $DIR/arbitrary_self_types_nonnull.rs:8:16
+   |
+LL |     fn n(self: &std::ptr::NonNull<Self>) {}
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Deref` is not implemented for `NonNull<A>`
+   |
+   = note: required for `NonNull<A>` to implement `std::ops::Receiver`
 
 error[E0307]: invalid `self` parameter type: `&NonNull<A>`
   --> $DIR/arbitrary_self_types_nonnull.rs:8:16
@@ -18,6 +34,7 @@ LL |     fn n(self: &std::ptr::NonNull<Self>) {}
    = help: consider changing to `self`, `&self`, `&mut self`, or a type implementing `Receiver` such as `self: Box<Self>`, `self: Rc<Self>`, or `self: Arc<Self>`
    = note: `NonNull` does not implement `Receiver` because it has methods that may shadow the referent; consider wrapping your `NonNull` in a newtype wrapper for which you implement `Receiver`
 
-error: aborting due to 2 previous errors
+error: aborting due to 4 previous errors
 
-For more information about this error, try `rustc --explain E0307`.
+Some errors have detailed explanations: E0277, E0307.
+For more information about an error, try `rustc --explain E0277`.

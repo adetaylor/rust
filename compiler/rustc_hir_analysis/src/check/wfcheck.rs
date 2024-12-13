@@ -18,8 +18,9 @@ use rustc_middle::query::Providers;
 use rustc_middle::ty::print::with_no_trimmed_paths;
 use rustc_middle::ty::trait_def::TraitSpecializationKind;
 use rustc_middle::ty::{
-    self, AdtKind, GenericArgKind, GenericArgs, GenericParamDefKind, Ty, TyCtxt, TypeFoldable,
-    TypeSuperVisitable, TypeVisitable, TypeVisitableExt, TypeVisitor, TypingMode, Upcast,
+    self, AdtKind, GenericArgKind, GenericArgs, GenericParamDefKind, Predicate, Ty, TyCtxt,
+    TypeFoldable, TypeSuperVisitable, TypeVisitable, TypeVisitableExt, TypeVisitor, TypingMode,
+    Upcast,
 };
 use rustc_middle::{bug, span_bug};
 use rustc_session::parse::feature_err;
@@ -1749,7 +1750,9 @@ fn check_method_receiver<'tcx>(
             // Report error; would not have worked with `arbitrary_self_types[_pointers]`.
             {
                 match receiver_validity_err {
-                    ReceiverValidityError::DoesNotDeref if arbitrary_self_types_level.is_some() => {
+                    ReceiverValidityError::DoesNotDeref(unmet_obligation)
+                        if arbitrary_self_types_level.is_some() =>
+                    {
                         let hint = match receiver_ty
                             .builtin_deref(false)
                             .unwrap_or(receiver_ty)
@@ -1760,10 +1763,10 @@ fn check_method_receiver<'tcx>(
                             Some(sym::NonNull) => Some(InvalidReceiverTyHint::NonNull),
                             _ => None,
                         };
-
+                        emit_receiver_not_implemented_errors(unmet_obligation, wfcx);
                         tcx.dcx().emit_err(errors::InvalidReceiverTy { span, receiver_ty, hint })
                     }
-                    ReceiverValidityError::DoesNotDeref => {
+                    ReceiverValidityError::DoesNotDeref(..) => {
                         tcx.dcx().emit_err(errors::InvalidReceiverTyNoArbitrarySelfTypes {
                             span,
                             receiver_ty,
@@ -1782,20 +1785,20 @@ fn check_method_receiver<'tcx>(
 /// Error cases which may be returned from `receiver_is_valid`. These error
 /// cases are generated in this function as they may be unearthed as we explore
 /// the `autoderef` chain, but they're converted to diagnostics in the caller.
-enum ReceiverValidityError {
+enum ReceiverValidityError<'tcx> {
     /// The self type does not get to the receiver type by following the
     /// autoderef chain.
-    DoesNotDeref,
+    DoesNotDeref(Option<Obligation<'tcx, Predicate<'tcx>>>),
     /// A type was found which is a method type parameter, and that's not allowed.
     MethodGenericParamUsed,
 }
 
 /// Confirms that a type is not a type parameter referring to one of the
 /// method's type params.
-fn confirm_type_is_not_a_method_generic_param(
+fn confirm_type_is_not_a_method_generic_param<'tcx>(
     ty: Ty<'_>,
     method_generics: &ty::Generics,
-) -> Result<(), ReceiverValidityError> {
+) -> Result<(), ReceiverValidityError<'tcx>> {
     if let ty::Param(param) = ty.kind() {
         if (param.index as usize) >= method_generics.parent_count {
             return Err(ReceiverValidityError::MethodGenericParamUsed);
@@ -1820,7 +1823,7 @@ fn receiver_is_valid<'tcx>(
     self_ty: Ty<'tcx>,
     arbitrary_self_types_enabled: Option<ArbitrarySelfTypesLevel>,
     method_generics: &ty::Generics,
-) -> Result<(), ReceiverValidityError> {
+) -> Result<(), ReceiverValidityError<'tcx>> {
     let infcx = wfcx.infcx;
     let tcx = wfcx.tcx();
     let cause =
@@ -1897,7 +1900,7 @@ fn receiver_is_valid<'tcx>(
     }
 
     debug!("receiver_is_valid: type `{:?}` does not deref to `{:?}`", receiver_ty, self_ty);
-    Err(ReceiverValidityError::DoesNotDeref)
+    Err(ReceiverValidityError::DoesNotDeref(autoderef.unmet_obligation()))
 }
 
 fn legacy_receiver_is_implemented<'tcx>(
@@ -1919,6 +1922,25 @@ fn legacy_receiver_is_implemented<'tcx>(
             receiver_ty
         );
         false
+    }
+}
+
+/// Determine whether it _would have_ been possible to use `receiver_ty` as
+/// a self type if it had been `Sized`, so we can show a specialized diagnostic.
+/// This is because it's an easy mistake to `impl<T> Receiver` instead of
+/// `impl<T: ?Sized> Receiver`.
+fn emit_receiver_not_implemented_errors<'tcx>(
+    unmet_obligation: Option<Obligation<'tcx, Predicate<'tcx>>>,
+    wfcx: &WfCheckingCtxt<'_, 'tcx>,
+) {
+    if let Some(unmet_obligation) = unmet_obligation {
+        let infcx = wfcx.infcx;
+        let ocx = traits::ObligationCtxt::new_with_diagnostics(&infcx);
+        ocx.register_obligation(unmet_obligation);
+        let errors = ocx.select_all_or_error();
+        if !errors.is_empty() {
+            infcx.err_ctxt().report_fulfillment_errors(errors);
+        }
     }
 }
 

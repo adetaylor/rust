@@ -1,6 +1,6 @@
 use rustc_infer::infer::InferCtxt;
-use rustc_infer::traits::PredicateObligations;
-use rustc_middle::ty::{self, Ty, TyCtxt, TypeVisitableExt};
+use rustc_infer::traits::{Obligation, PredicateObligations};
+use rustc_middle::ty::{self, Predicate, Ty, TyCtxt, TypeVisitableExt};
 use rustc_session::Limit;
 use rustc_span::Span;
 use rustc_span::def_id::{LOCAL_CRATE, LocalDefId};
@@ -44,6 +44,9 @@ pub struct Autoderef<'a, 'tcx> {
     include_raw_pointers: bool,
     use_receiver_trait: bool,
     silence_errors: bool,
+
+    // For diagnostics
+    unmet_obligation: Option<Obligation<'tcx, Predicate<'tcx>>>,
 }
 
 impl<'a, 'tcx> Iterator for Autoderef<'a, 'tcx> {
@@ -135,6 +138,7 @@ impl<'a, 'tcx> Autoderef<'a, 'tcx> {
             include_raw_pointers: false,
             use_receiver_trait: false,
             silence_errors: false,
+            unmet_obligation: None,
         }
     }
 
@@ -162,6 +166,7 @@ impl<'a, 'tcx> Autoderef<'a, 'tcx> {
         );
         if !self.infcx.predicate_may_hold(&obligation) {
             debug!("overloaded_deref_ty: cannot match obligation");
+            self.unmet_obligation = Some(obligation);
             return None;
         }
 
@@ -234,6 +239,10 @@ impl<'a, 'tcx> Autoderef<'a, 'tcx> {
 
     pub fn reached_recursion_limit(&self) -> bool {
         self.state.reached_recursion_limit
+    }
+
+    pub fn unmet_obligation(&mut self) -> Option<Obligation<'tcx, Predicate<'tcx>>> {
+        self.unmet_obligation.take()
     }
 
     /// also dereference through raw pointer types

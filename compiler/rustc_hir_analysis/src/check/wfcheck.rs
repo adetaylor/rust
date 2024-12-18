@@ -1842,6 +1842,8 @@ fn receiver_is_valid<'tcx>(
 
     let mut autoderef = Autoderef::new(infcx, wfcx.param_env, wfcx.body_def_id, span, receiver_ty);
 
+    autoderef = autoderef.set_obligation_cause(cause.clone());
+
     // The `arbitrary_self_types` feature allows custom smart pointer
     // types to be method receivers, as identified by following the Receiver<Target=T>
     // chain.

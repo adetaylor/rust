@@ -46,6 +46,7 @@ pub struct Autoderef<'a, 'tcx> {
     silence_errors: bool,
 
     // For diagnostics
+    obligation_cause: Option<traits::ObligationCause<'tcx>>,
     unmet_obligation: Option<Obligation<'tcx, Predicate<'tcx>>>,
 }
 
@@ -138,6 +139,7 @@ impl<'a, 'tcx> Autoderef<'a, 'tcx> {
             include_raw_pointers: false,
             use_receiver_trait: false,
             silence_errors: false,
+            obligation_cause: None,
             unmet_obligation: None,
         }
     }
@@ -157,7 +159,10 @@ impl<'a, 'tcx> Autoderef<'a, 'tcx> {
             (tcx.lang_items().deref_trait()?, tcx.lang_items().deref_target()?)
         };
         let trait_ref = ty::TraitRef::new(tcx, trait_def_id, [ty]);
-        let cause = traits::ObligationCause::misc(self.span, self.body_id);
+        let cause = self
+            .obligation_cause
+            .clone()
+            .unwrap_or_else(|| traits::ObligationCause::misc(self.span, self.body_id));
         let obligation = traits::Obligation::new(
             tcx,
             cause.clone(),
@@ -264,6 +269,11 @@ impl<'a, 'tcx> Autoderef<'a, 'tcx> {
 
     pub fn silence_errors(mut self) -> Self {
         self.silence_errors = true;
+        self
+    }
+
+    pub fn set_obligation_cause(mut self, obligation_cause: traits::ObligationCause<'tcx>) -> Self {
+        self.obligation_cause = Some(obligation_cause);
         self
     }
 }

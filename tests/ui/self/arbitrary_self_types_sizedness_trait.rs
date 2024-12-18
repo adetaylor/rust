@@ -12,6 +12,7 @@ struct A;
 trait B {
     fn m(self: SmartPtr<Self>) {}
     //~^ ERROR: invalid `self` parameter type
+    //~| ERROR: the trait bound
 }
 
 impl B for A {
